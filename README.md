@@ -10,7 +10,8 @@ This repository provides ready-to-use instrumentation setups that forward teleme
 
 | Agent | Description |
 |-------|-------------|
-| *(coming soon)* | More integrations will be added here |
+| [Claude Code](./claude-code/) | Forward token usage, costs, code changes, and prompt logs to Coralogix via OTLP |
+| [Codex CLI](./codex/) | Forward API requests, tool calls, SSE events, and session activity to Coralogix via OTLP |
 
 ## Contributing
 
