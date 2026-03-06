@@ -52,7 +52,7 @@ Open `.env` and fill in:
 
 ```
 CX_API_KEY=<your-send-your-data-api-key>
-CX_OTLP_ENDPOINT=https://ingress.eu2.coralogix.com
+CX_OTLP_ENDPOINT=https://ingress.eu1.coralogix.com
 CX_APPLICATION_NAME=codex
 CX_SUBSYSTEM_NAME=codex-sessions
 ```
@@ -103,7 +103,9 @@ set -a; source .env; set +a
 envsubst < config.toml.example > ~/.codex/config.toml
 ```
 
-`envsubst` replaces all `${VAR}` placeholders with the values from `.env`, so your credentials never need to live in the config file directly.
+`envsubst` substitutes all `${VAR}` placeholders from `.env` before writing, so your credentials stay out of the config file.
+
+> **Note:** Replace `/absolute/path/to/codex/.env` in the `~/.zshrc` snippet with the real path. Run `pwd` inside the `codex/` directory to get it.
 
 ### 4. Start Codex
 
