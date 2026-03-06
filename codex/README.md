@@ -16,6 +16,8 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 
 - `config.toml.example` — the OTel block to merge into your Codex config
 - `.env.example` — stores your Coralogix credentials (git-ignored)
+- `gen_dashboard.py` — regenerates `coralogix-codex-dashboard.json` from confirmed DataPrime patterns
+- `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
 > **Metrics export** is not yet supported by Codex CLI — see [openai/codex#10277](https://github.com/openai/codex/issues/10277).
 
@@ -130,3 +132,28 @@ Run a session, then type `/exit` to flush telemetry. Logs appear in Coralogix un
 | `trace_exporter` | *(unset)* | Same options as `exporter`, enables trace export |
 
 See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advanced/#observability-and-telemetry) for the full reference.
+
+---
+
+## Dashboard
+
+A pre-built dashboard is included at `coralogix-codex-dashboard.json`. To regenerate it after making changes:
+
+```bash
+python3 gen_dashboard.py
+```
+
+**To import:**
+1. In your Coralogix tenant go to **Dashboards → New Dashboard**
+2. Click the menu icon → **Import from JSON**
+3. Paste the contents of `coralogix-codex-dashboard.json` and save
+
+**Dashboard sections:**
+
+| Section | What you see |
+|---|---|
+| **Sessions & User Activity** | Sessions per user · API requests per session · active users over time |
+| **Tokens** | Total tokens per session · token breakdown by model · daily token usage |
+| **Traces** | Slowest spans · span count by operation · avg + max duration per operation |
+
+All panels use DataPrime queries filtered by `originator = codex_cli_rs`, so they work regardless of which application/subsystem the logs are routed to.
