@@ -1,4 +1,4 @@
-# internal-ai-agent-instrumentation
+# Coralogix AI Agents Instrumentation
 
 A collection of instrumentation integrations for AI agents, enabling observability through [Coralogix](https://coralogix.com).
 
