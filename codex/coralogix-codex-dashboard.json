@@ -1,0 +1,485 @@
+{
+  "id": "5eLFg0vuo2yqR4aF6OZo1",
+  "name": "Codex CLI Sessions",
+  "layout": {
+    "sections": [
+      {
+        "id": {
+          "value": "e758c4e5-5d65-4c2e-b05e-fc7ebfdbffa8"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "75849909-b35a-443d-8547-ee0726b8c41f"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "0d2761c2-a1d8-4f39-bd81-d5e46dd6dbfd"
+                },
+                "title": "Sessions by User",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| distinct $d.logRecord.attributes['conversation.id'], $d.logRecord.attributes['user.email']\n| countby $d.logRecord.attributes['user.email'] as user into session_count desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$d.user"
+                      },
+                      {
+                        "field": "$d.session_count"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "b5d9db4c-09d7-4083-9d92-8cc2eeb45b9e"
+                },
+                "title": "API Requests per Session",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.api_request'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| groupby conversation_id, user aggregate count() as turns\n| sort by turns desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$d.conversation_id",
+                        "width": 294
+                      },
+                      {
+                        "field": "$d.user",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d.turns",
+                        "width": 200
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "857689ea-5be2-4db6-b580-a8861fb1f3c5"
+                },
+                "title": "Active Users over Time",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "893fddef-ef56-427c-b23e-ef55b58429a1",
+                        "query": {
+                          "dataprime": {
+                            "dataprimeQuery": {
+                              "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| create user from $d.logRecord.attributes['user.email']\n| distinct $m.timestamp / 1h as hour, user\n| countby hour into active_users asc"
+                            },
+                            "filters": []
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Sessions & User Activity",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "ab79e2f4-b4ad-44d4-9168-f28030062b35"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "e5a95301-d052-4677-9c82-2c65a8b50065"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "0730f61a-f623-4dc3-bd19-f1377eca4495"
+                },
+                "title": "Total Tokens per Session",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby conversation_id, user aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$d.conversation_id",
+                        "width": 307
+                      },
+                      {
+                        "field": "$d.user",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d.total_input",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d.total_output",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d.total_cached",
+                        "width": 200
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "c7731d96-8753-4a0b-a4b5-97ef242d43ad"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "9d75420c-0e39-4b3d-b79c-5778ab741de4"
+                },
+                "title": "Token Breakdown by Model",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create model from $d.logRecord.attributes.model\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby model aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$d.model"
+                      },
+                      {
+                        "field": "$d.total_input"
+                      },
+                      {
+                        "field": "$d.total_output"
+                      },
+                      {
+                        "field": "$d.total_cached"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "cda80797-6262-4b0a-9161-41620dbd00e8"
+                },
+                "title": "Daily Token Usage",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create day_raw from ($m.timestamp / 1d):string\n| create day from day_raw.substr(0, 10)\n| groupby day aggregate sum(input) as daily_input, sum(output) as daily_output"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "day"
+                        ]
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "aggregation": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Tokens",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "230ffa38-9c9d-41fe-9b7c-6f8d06ea8b5c"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "00544219-8744-44d8-8d42-796341450ab0"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "e628cd69-e7f2-4766-8c16-805e024a2d4b"
+                },
+                "title": "Slowest Spans (ms)",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source spans\n| filter $d.serviceName == 'codex_cli_rs'\n| create operation from $d.operationName\n| create duration_ms from $d.duration:number / 1000000\n| sort by duration_ms desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$d.operation",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d.duration_ms",
+                        "width": 595
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "15e2775b-138e-4e00-a36e-a379393c6b90"
+                },
+                "title": "Span Count by Operation",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source spans\n| filter $d.serviceName == 'codex_cli_rs'\n| countby $d.operationName as operation into span_count desc"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "operation"
+                        ]
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "aggregation": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "d09e89cc-026b-4239-8b32-48afda201292"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "4148401e-1fc7-4083-b2d4-d123b3a18ede"
+                },
+                "title": "Avg + Max Duration per Operation (ms)",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source spans\n| filter $d.serviceName == 'codex_cli_rs'\n| create operation from $d.operationName\n| create dur from $d.duration:number / 1000000\n| groupby operation aggregate avg(dur) as avg_ms, max(dur) as max_ms\n| sort by avg_ms desc"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "operation"
+                        ]
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "aggregation": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Traces",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "variables": [],
+  "variablesV2": [],
+  "filters": [],
+  "relativeTimeFrame": "43200s",
+  "annotations": [],
+  "off": {},
+  "actions": []
+}

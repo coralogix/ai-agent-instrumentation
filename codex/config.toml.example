@@ -1,0 +1,39 @@
+# OpenAI Codex CLI → Coralogix OTel configuration
+#
+# Codex supports two OTel export pipelines via config.toml:
+#  - otel.exporter       → log events (conversation, API requests, tool calls, prompts)
+#  - otel.trace_exporter → traces
+#  Note: metrics export is not supported in config.toml (no otel.metrics_exporter key).
+#
+# Setup:
+#  1. Copy .env.example → .env and fill in your credentials
+#  2. Source in ~/.zshrc for persistence (replace the path with the absolute path
+#     to the .env file — run `pwd` inside the codex/ directory to get it):
+#       if [ -f "/absolute/path/to/codex/.env" ]; then
+#         set -a; source "/absolute/path/to/codex/.env"; set +a
+#       fi
+#  3. Merge the [otel] block below into ~/.codex/config.toml:
+#       set -a; source .env; set +a
+#       envsubst < config.toml.example >> ~/.codex/config.toml
+
+[otel]
+environment = "production"
+log_user_prompt = false
+
+[otel.exporter.otlp-http]
+endpoint = "${CX_OTLP_ENDPOINT}/v1/logs"
+protocol = "binary"
+
+[otel.exporter.otlp-http.headers]
+"Authorization" = "Bearer ${CX_API_KEY}"
+"CX-Application-Name" = "${CX_APPLICATION_NAME}"
+"CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}"
+
+[otel.trace_exporter.otlp-http]
+endpoint = "${CX_OTLP_ENDPOINT}/v1/traces"
+protocol = "binary"
+
+[otel.trace_exporter.otlp-http.headers]
+"Authorization" = "Bearer ${CX_API_KEY}"
+"CX-Application-Name" = "${CX_APPLICATION_NAME}"
+"CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}"
