@@ -17,7 +17,6 @@ Claude Code exposes telemetry via the OpenTelemetry SDK when `CLAUDE_CODE_ENABLE
 - `activate.sh` — exports all required env vars into your shell in one step
 - `.env` — stores your Coralogix API key and endpoint (git-ignored)
 - `coralogix-dashboard.json` — a pre-built dashboard ready to import
-- `ping.py` — sends a test payload to confirm the pipeline is working end-to-end
 
 ---
 
@@ -129,22 +128,6 @@ Or use Claude Code's own settings file at `~/.config/claude-code/settings.json`:
   }
 }
 ```
-
----
-
-## Test the pipeline
-
-Before a real session, send a synthetic payload to confirm Coralogix is receiving data:
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python3 ping.py
-```
-
-Then in Coralogix:
-- **Metrics Explorer** → search `claude_code` — test counters should appear within seconds
-- **Logs** → filter `subsystemName = claude-code-sessions` — test log events appear there
 
 ---
 
