@@ -1,6 +1,6 @@
 {
-  "id": "5eLFg0vuo2yqR4aF6OZo1",
-  "name": "Codex CLI Sessions",
+  "id": "qIfeMP1e7vUTGLWwCgitp",
+  "name": "Codex CLI Sessions (imported)",
   "layout": {
     "sections": [
       {
@@ -412,15 +412,15 @@
             "widgets": [
               {
                 "id": {
-                  "value": "4148401e-1fc7-4083-b2d4-d123b3a18ede"
+                  "value": "80c0b785-5d76-46ef-a2c8-14188e24e748"
                 },
-                "title": "Avg + Max Duration per Operation (ms)",
+                "title": "Avg Operation Latency (ms)",
                 "definition": {
                   "horizontalBarChart": {
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source spans\n| filter $d.serviceName == 'codex_cli_rs'\n| create operation from $d.operationName\n| create dur from $d.duration:number / 1000000\n| groupby operation aggregate avg(dur) as avg_ms, max(dur) as max_ms\n| sort by avg_ms desc"
+                          "text": "source spans\n| filter $d.serviceName == 'codex_cli_rs'\n| filter $d.operationName != 'session_loop'\n| create operation from $d.operationName\n| create dur from $d.duration:number / 1000000\n| groupby operation aggregate avg(dur) as avg_ms, max(dur) as max_ms\n| sort by avg_ms desc\n"
                         },
                         "filters": [],
                         "groupNames": [
@@ -472,13 +472,100 @@
             }
           }
         }
+      },
+      {
+        "id": {
+          "value": "9ebf8646-3a50-43f0-b2ee-4347ac4ec9ad"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "80c58ba7-0984-445e-84e8-f94a958cd967"
+            },
+            "appearance": {
+              "height": 24
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "e2f68dbd-5684-4efd-a9ff-6d953d79e760"
+                },
+                "title": "New Data Table",
+                "definition": {
+                  "dataTable": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create ts from $d.logRecord.attributes['event.timestamp']\n| create user from $d.logRecord.attributes['user.email']\n| create model from $d.logRecord.attributes.model\n| create session from $d.logRecord.attributes['conversation.id']\n| create tokens_in from $d.logRecord.attributes.input_token_count:number\n| create tokens_out from $d.logRecord.attributes.output_token_count:number\n| create app from $l.applicationname\n| create service from $d.resource.attributes['service.name']\n| choose ts, user, model, session, tokens_in, tokens_out, app, service\n| sort by ts desc"
+                        },
+                        "filters": []
+                      }
+                    },
+                    "resultsPerPage": 100,
+                    "rowStyle": "ROW_STYLE_ONE_LINE",
+                    "columns": [
+                      {
+                        "field": "$m.timestamp",
+                        "width": 192
+                      },
+                      {
+                        "field": "$d.model",
+                        "width": 155
+                      },
+                      {
+                        "field": "$d.service",
+                        "width": 120
+                      },
+                      {
+                        "field": "$d.session",
+                        "width": 309
+                      },
+                      {
+                        "field": "$d.tokens_in",
+                        "width": 139
+                      },
+                      {
+                        "field": "$d.tokens_out",
+                        "width": 135
+                      },
+                      {
+                        "field": "$d.user",
+                        "width": 200
+                      },
+                      {
+                        "field": "$d",
+                        "width": 600
+                      },
+                      {
+                        "field": "$l.applicationname",
+                        "width": 160
+                      },
+                      {
+                        "field": "$l.subsystemname",
+                        "width": 150
+                      }
+                    ],
+                    "orderBy": {
+                      "field": "$l.applicationname",
+                      "orderDirection": "ORDER_DIRECTION_DESC"
+                    },
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "internal": {}
+        }
       }
     ]
   },
   "variables": [],
   "variablesV2": [],
   "filters": [],
-  "relativeTimeFrame": "43200s",
+  "relativeTimeFrame": "604800s",
   "annotations": [],
   "off": {},
   "actions": []
