@@ -15,7 +15,7 @@ This repository provides ready-to-use instrumentation setups that forward teleme
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request. All contributors are required to sign the [Coralogix CLA](https://cla-assistant.io/coralogix/ai-agents-instrumentation).
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request. All contributors are required to sign the [Coralogix CLA](https://cla-assistant.io/coralogix/ai-agent-instrumentation).
 
 ## Security
 

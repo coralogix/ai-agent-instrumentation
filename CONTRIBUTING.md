@@ -18,7 +18,7 @@ Welcome! We are glad that you want to contribute to this project.
 
 We require that contributors have signed our Contributor License Agreement (CLA).
 
-When a contributor submits their first Pull Request, the CLA Bot will request them to sign the [Coralogix CLA](https://cla-assistant.io/coralogix/ai-agents-instrumentation).
+When a contributor submits their first Pull Request, the CLA Bot will request them to sign the [Coralogix CLA](https://cla-assistant.io/coralogix/ai-agent-instrumentation).
 
 ## Pull Request Checklist
 
