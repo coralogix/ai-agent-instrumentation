@@ -1,0 +1,9 @@
+{
+  "telemetry": {
+    "enabled": true,
+    "target": "local",
+    "otlpEndpoint": "https://ingress.eu1.coralogix.com",
+    "otlpProtocol": "grpc",
+    "logPrompts": false
+  }
+}
