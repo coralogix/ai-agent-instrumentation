@@ -25,13 +25,9 @@ export GEMINI_TELEMETRY_ENABLED=true
 # ── Target: custom OTLP endpoint (not GCP) ───────────────────────────────────
 export GEMINI_TELEMETRY_TARGET=local
 
-# ── Protocol: gRPC (protobuf) — most reliable with Coralogix ─────────────────
-# Gemini CLI's HTTP exporters use JSON format, which Coralogix accepts (200 OK)
-# but silently drops. gRPC uses protobuf which Coralogix ingests correctly.
 export GEMINI_TELEMETRY_OTLP_PROTOCOL=grpc
 
-# ── Coralogix gRPC OTLP ingress endpoint ─────────────────────────────────────
-# gRPC uses origin only (no /v1/ path suffix); Coralogix exposes gRPC on 443.
+# ── Coralogix HTTP OTLP ingress endpoint ──────────────────────────────────────
 export GEMINI_TELEMETRY_OTLP_ENDPOINT="${CX_OTLP_ENDPOINT}"
 
 export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer ${CX_API_KEY},cx-application-name=${CX_APPLICATION_NAME},cx-subsystem-name=${CX_SUBSYSTEM_NAME}"
