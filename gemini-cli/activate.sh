@@ -34,11 +34,8 @@ export GEMINI_TELEMETRY_OTLP_PROTOCOL=grpc
 # gRPC uses origin only (no /v1/ path suffix); Coralogix exposes gRPC on 443.
 export GEMINI_TELEMETRY_OTLP_ENDPOINT="${CX_OTLP_ENDPOINT}"
 
-# ── Auth + routing headers — sent as gRPC metadata by the OTel gRPC exporter ─
-# gRPC metadata keys must be lowercase; HTTP headers are case-insensitive.
 export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer ${CX_API_KEY},cx-application-name=${CX_APPLICATION_NAME},cx-subsystem-name=${CX_SUBSYSTEM_NAME}"
 
-# ── Resource attributes (belt-and-suspenders routing for Coralogix) ───────────
 export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.subsystem.name=${CX_SUBSYSTEM_NAME}"
 
 # ── Include prompt text in telemetry (off by default) ────────────────────────

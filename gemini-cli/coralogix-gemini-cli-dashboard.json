@@ -1,0 +1,1798 @@
+{
+  "id": "Jze7tI1bsTMyvIwCVyZAx",
+  "name": "Gemini CLI",
+  "layout": {
+    "sections": [
+      {
+        "id": {
+          "value": "20a274ec-4606-4691-b98a-edefc4baca29"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "42fb12cd-bd10-4751-a29a-c992c768d26a"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "97a6d4bf-9a69-43f9-a7f8-486ddafee35a"
+                },
+                "title": "Sessions (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_session_count_total[24h]))"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-verbose)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "fbaea70f-7f56-4810-a3ac-4a7b17c74729"
+                },
+                "title": "Total Tokens (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_token_usage_total[24h]))\n"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-verbose)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "8740948c-c5a2-4fec-b304-05c2d588f4c3"
+                },
+                "title": "Total Input Tokens (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_token_usage_total{type=\"input\"}[24h]))\n\n"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 200000,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "ab0b88ac-d6d2-47de-8b2d-d1a84bed7825"
+                },
+                "title": "Total Output Tokens (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_token_usage_total{type=\"output\"}[24h]))\n"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 10000,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "36848119-0a37-4ba7-8a64-1c7052b8be16"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "eee787ce-a889-4cfd-bdb9-7d4b0c6106e7"
+                },
+                "title": "API Errors (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_api_request_count_total{status_code!~\"2..\"}[24h]))\n"
+                        },
+                        "aggregation": "AGGREGATION_SUM",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "ad2d814f-7af6-42c1-8d33-f4e71a131b7f"
+                },
+                "title": "Tool success rate (24h)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "100 * sum(gemini_cli_tool_call_count_total{success=\"true\"}) / clamp_min(sum(gemini_cli_tool_call_count_total), 1)\n\n"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-error)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-verbose)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Overview",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "df862426-48f7-4259-aa46-2913adb76ea8"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "2af5b3d0-f349-457c-9278-f357abf5fc26"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "72d39239-ddc5-493a-a5b2-10c8d0d1425a"
+                },
+                "title": "Sessions over time ",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(gemini_cli_session_count_total[5m]))"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "2dd21337-f148-4198-9862-02f0e21ef02c"
+                },
+                "title": " Model distribution ",
+                "definition": {
+                  "pieChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (model) (gemini_cli_api_request_count_total)\n\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "model"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxSlicesPerChart": 8,
+                    "minSlicePercentage": 1,
+                    "stackDefinition": {
+                      "maxSlicesPerStack": 4
+                    },
+                    "labelDefinition": {
+                      "labelSource": "LABEL_SOURCE_INNER",
+                      "isVisible": true,
+                      "showName": true,
+                      "showValue": true,
+                      "showPercentage": true
+                    },
+                    "showLegend": true,
+                    "unit": "UNIT_UNSPECIFIED",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false,
+                    "showTotal": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Session activity",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "a86c4375-bd13-4acb-8bfa-f639e46f46aa"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "877bf171-ef22-4416-b752-32f3b74982d3"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "85057f63-820d-46bc-a029-9fcdded93ffa"
+                },
+                "title": "Token volume over time by type",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "c1277a90-914d-462f-a098-4b0c10639462",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (type) (increase(gemini_cli_token_usage_total[5m]))\n\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "2ede154d-9532-4524-bca7-de48b6bcdf4d"
+                },
+                "title": " Token volume by model ",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "5bc50fbe-505f-4ec8-be4e-c603f96c1e00",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (model) (increase(gemini_cli_token_usage_total[5m]))\n\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "02113a4b-bdf9-4cfa-9db2-02affa6a57d3"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "785b5871-4ee6-4f5d-8eba-f4fa923f67ec"
+                },
+                "title": "Cache token ratio % ",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "3b7d2f63-3aab-4e6c-80da-127713913941",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "100 * sum(gemini_cli_token_usage_total{type=\"cache\"}) / clamp_min(sum(gemini_cli_token_usage_total), 1)\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "f47007a2-99f7-457e-8feb-1c48d2bfe2b8"
+                },
+                "title": "Thought tokens over time ",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "efb0b120-4064-4638-abb6-51bfc75bd90e",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(gemini_cli_token_usage_total{type=\"thought\"}[5m]))\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "d29f5694-496c-448d-84b2-936da19b6110"
+                },
+                "title": " Avg tokens per session",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "e39834e6-7c7c-49c7-8958-3d0798164ce0",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(gemini_cli_token_usage_total) / clamp_min(sum(gemini_cli_session_count_total), 1)\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Token usage & efficiency",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "23d62086-fdc2-4cca-bde2-6973469a5cd8"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "f27e6fa0-6b67-43f4-801f-b7331efde146"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "8ab3e5dc-78f5-4658-a526-28a23e70e73b"
+                },
+                "title": "API requests per minute\n\n",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "9658cb91-7596-44d6-9d32-ad2e961f8b90",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(gemini_cli_api_request_count_total[1m]))\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "4cb5604f-00f9-4bef-a8e5-bb40397bfc01"
+                },
+                "title": "API latency p50 / p90 / p99",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "51edef52-3373-469f-87fc-a3bc10cabfeb",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "histogram_quantile(0.50, sum by (le) (rate(gemini_cli_api_request_latency_ms_bucket[5m]))) \n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "p50",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      },
+                      {
+                        "id": "447aa490-42ff-4f77-8137-0a70ecae0a35",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "histogram_quantile(0.90, sum by (le) (rate(gemini_cli_api_request_latency_ms_bucket[5m])))\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "p90",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      },
+                      {
+                        "id": "f9695dc4-2fdf-47b4-840d-d00c1727a9a6",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "histogram_quantile(0.99, sum by (le) (rate(gemini_cli_api_request_latency_ms_bucket[5m])))\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "p99",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "617d55f9-e4d9-4bfe-8743-a37a6cc0ce27"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "f0a273d8-05c3-40ac-b358-4989596c5535"
+                },
+                "title": " Error rate over time ",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "830f389a-41c8-46bf-93c6-7728d207e54d",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(gemini_cli_api_request_count_total{status_code!~\"2..\"}[5m])) / clamp_min(sum(increase(gemini_cli_api_request_count_total[5m])), 1) * 100\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "86f98702-9705-421d-be9a-53748eb3ba2d"
+                },
+                "title": "Errors by type",
+                "definition": {
+                  "barChart": {
+                    "query": {
+                      "dataprime": {
+                        "dataprimeQuery": {
+                          "text": "source logs | filter $d.logRecord.attributes['event.name'] == 'gemini_cli.api_error' | countby $d.logRecord.attributes['error.type'] as error_type\n\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "error_type"
+                        ]
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "groupBy": {}
+                    },
+                    "xAxis": {
+                      "value": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_ARCHIVE",
+                    "barValueDisplay": "BAR_VALUE_DISPLAY_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_SIDE",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "106e8be3-fb69-497d-a431-0b2bec7899ce"
+                },
+                "title": "Status code distribution",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (status_code) (gemini_cli_api_request_count_total)\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "status_code"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "groupBy": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "API performance",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "9ca78e8d-9483-4225-8c5c-dd88f19cd1f6"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "32e872d0-fa15-4ade-aade-38cd61c749f5"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "030e3706-5682-4b02-b8ad-76765a5989c2"
+                },
+                "title": "Tool calls over time\n\n",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "30bbfd18-6358-4046-8328-3d873fa148aa",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(gemini_cli_tool_call_count_total[5m]))"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "b303f674-917a-4fde-9b75-a8af9070a9c2"
+                },
+                "title": "Top tools by call count\n\n",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (function_name) (gemini_cli_tool_call_count_total)\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "function_name"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "groupBy": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "60765d36-41c7-4dd2-8a58-3de9dc330233"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "a23b3c3c-1596-4cae-97ba-7da0f6774162"
+                },
+                "title": "Tool success rate by function",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "100 * sum by (function_name) (gemini_cli_tool_call_count_total{success=\"true\"}) / clamp_min(sum by (function_name) (gemini_cli_tool_call_count_total), 1)\n\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "function_name"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "groupBy": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "a71d47f1-8c17-40d9-9317-67816a4afa04"
+                },
+                "title": " Tool latency by function ",
+                "definition": {
+                  "horizontalBarChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (function_name) (gemini_cli_tool_call_latency_ms_sum) / clamp_min(sum by (function_name) (gemini_cli_tool_call_latency_ms_count), 1)\n\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "function_name"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxBarsPerChart": 24,
+                    "stackDefinition": {
+                      "maxSlicesPerBar": 7
+                    },
+                    "scaleType": "SCALE_TYPE_LINEAR",
+                    "colorsBy": {
+                      "groupBy": {}
+                    },
+                    "unit": "UNIT_UNSPECIFIED",
+                    "displayOnBar": true,
+                    "yAxisViewBy": {
+                      "value": {}
+                    },
+                    "sortBy": "SORT_BY_TYPE_VALUE",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": {
+              "value": "3a71d702-9350-470f-a4e1-e20edd66c2f9"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "bd5e1d09-74ce-4dd6-a775-9629fd5a2cee"
+                },
+                "title": "Decision breakdown\n\n",
+                "definition": {
+                  "pieChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (decision) (gemini_cli_tool_call_count_total)\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "decision"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxSlicesPerChart": 8,
+                    "minSlicePercentage": 1,
+                    "stackDefinition": {
+                      "maxSlicesPerStack": 4
+                    },
+                    "labelDefinition": {
+                      "labelSource": "LABEL_SOURCE_INNER",
+                      "isVisible": true,
+                      "showName": true,
+                      "showValue": true,
+                      "showPercentage": true
+                    },
+                    "showLegend": true,
+                    "unit": "UNIT_UNSPECIFIED",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false,
+                    "showTotal": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "59119e88-7b41-47d2-aa18-f551f462a7e1"
+                },
+                "title": "MCP vs native split\n\n",
+                "definition": {
+                  "pieChart": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum by (tool_type) (gemini_cli_tool_call_count_total)\n"
+                        },
+                        "filters": [],
+                        "groupNames": [
+                          "tool_type"
+                        ],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE",
+                        "aggregation": "AGGREGATION_LAST"
+                      }
+                    },
+                    "maxSlicesPerChart": 8,
+                    "minSlicePercentage": 1,
+                    "stackDefinition": {
+                      "maxSlicesPerStack": 4
+                    },
+                    "labelDefinition": {
+                      "labelSource": "LABEL_SOURCE_INNER",
+                      "isVisible": true,
+                      "showName": true,
+                      "showValue": true,
+                      "showPercentage": true
+                    },
+                    "showLegend": true,
+                    "unit": "UNIT_UNSPECIFIED",
+                    "colorScheme": "classic",
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "decimal": 2,
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "hashColors": false,
+                    "decimalPrecision": false,
+                    "showTotal": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Tool usage",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "26029592-1753-4254-a84e-c1c6a0034e64"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "a69da8fa-15ba-4173-bbf7-9bc7d9dd548b"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "9bda7e10-79ca-4e49-aecd-c0555f1c010b"
+                },
+                "title": " File operations over time by type",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "ac0aee1a-566b-4eb0-8198-2b38019c2546",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (operation) (increase(gemini_cli_file_operation_count_total[5m]))\n\n\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "8fd4d574-85e0-401d-ba92-9ab31221f67f"
+                },
+                "title": "Lines added vs removed over time ",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "125ccd58-6a17-419b-aa6f-c49786382c4f",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (type) (increase(gemini_cli_lines_changed_total[5m]))\n"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Query 1",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": " File operations & code changes",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "2d93c505-ca60-467b-84a7-2453f1b5a811"
+        },
+        "rows": [],
+        "options": {
+          "custom": {
+            "name": "Agent runs\n\n",
+            "collapsed": true,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "117bbaaf-ec14-4cf3-8ea0-f0cabe6fe03f"
+        },
+        "rows": [],
+        "options": {
+          "custom": {
+            "name": "Resilience & errors",
+            "collapsed": true,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "variables": [],
+  "variablesV2": [],
+  "filters": [],
+  "relativeTimeFrame": "86400s",
+  "annotations": [],
+  "off": {},
+  "actions": []
+}

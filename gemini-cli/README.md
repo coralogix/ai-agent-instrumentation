@@ -8,10 +8,6 @@ No wrappers. No code changes to your projects. Gemini CLI emits OTLP natively; y
 
 ## How it works
 
-```
-Gemini CLI  →  OTLP/HTTP  →  Coralogix ingress  →  Metrics Explorer + Logs + Traces
-```
-
 Gemini CLI ships the full OpenTelemetry SDK and emits logs, metrics, and traces when `GEMINI_TELEMETRY_ENABLED=true` is set. This folder provides:
 
 - `activate.sh` — exports all required env vars into your shell in one step
@@ -28,54 +24,17 @@ The gRPC exporters use protobuf, which Coralogix ingests correctly. `@openteleme
 
 Gemini CLI's `settings.json` has no `headers` field. Instead, Gemini CLI constructs its OTLP exporters without hardcoded headers, so the standard `OTEL_EXPORTER_OTLP_HEADERS` env var is read as gRPC metadata by the underlying `@opentelemetry/exporter-*-otlp-grpc` packages. `activate.sh` sets this variable automatically with three values:
 
-- `Authorization=Bearer <key>` — authenticates the request
-- `CX-Application-Name=<name>` — routes data to the correct Coralogix application
-- `CX-Subsystem-Name=<name>` — routes data to the correct Coralogix subsystem
+- `authorization=Bearer <key>` — authenticates the request
+- `cx-application-name=<name>` — routes data to the correct Coralogix application
+- `cx-subsystem-name=<name>` — routes data to the correct Coralogix subsystem
 
 ---
 
 ## Signals sent to Coralogix
 
-### Metrics
+Gemini CLI emits logs, metrics, and traces via OTLP. For the full signal reference — event names, metric names, attributes, and trace span structure — see the [Gemini CLI telemetry documentation](https://geminicli.com/docs/cli/telemetry/).
 
-All metrics are emitted via OTLP and appear under **Metrics Explorer**. Search for `gemini_cli`.
-
-| Metric | Attributes | What it tracks |
-|---|---|---|
-| `gemini_cli.session.count` | — | CLI startups |
-| `gemini_cli.token.usage` | `model`, `type` (input / output / thought / cache / tool) | Token consumption |
-| `gemini_cli.api.request.count` | `model`, `status_code` | API calls made |
-| `gemini_cli.api.request.latency` | `model` | API round-trip time (ms) |
-| `gemini_cli.tool.call.count` | `function_name`, `success`, `decision`, `tool_type` | Tool executions |
-| `gemini_cli.tool.call.latency` | `function_name` | Tool execution time (ms) |
-| `gemini_cli.file.operation.count` | `operation` (create / read / update) | File operations |
-| `gemini_cli.lines.changed` | `type` (added / removed) | Lines of code changed |
-| `gemini_cli.agent.run.count` | `agent_name`, `terminate_reason` | Agent runs |
-| `gemini_cli.agent.duration` | `agent_name` | Agent run duration (ms) |
-| `gemini_cli.agent.turns` | `agent_name` | Turns per agent run |
-
-### Log events
-
-Log events are routed to the subsystem you configure in `.env`. Query them in **Coralogix Logs** using DataPrime or Lucene.
-
-| Event | Key attributes |
-|---|---|
-| `gemini_cli.user_prompt` | `session.id`, `prompt_length`, `prompt` (opt-in), `auth_type` |
-| `gemini_cli.api_request` | `model`, `prompt_id`, `role` |
-| `gemini_cli.api_response` | `model`, `status_code`, `duration_ms`, token counts, `finish_reasons` |
-| `gemini_cli.api_error` | `error.message`, `model_name`, `status_code`, `error_type` |
-| `gemini_cli.tool_call` | `function_name`, `duration_ms`, `success`, `decision`, `tool_type` |
-| `gemini_cli.file_operation` | `tool_name`, `operation`, `lines`, `extension` |
-| `gemini_cli.model_routing` | `decision_model`, `decision_source`, `routing_latency_ms` |
-| `gemini_cli.agent.start` / `.finish` | `agent_id`, `agent_name`, `duration_ms`, `turn_count`, `terminate_reason` |
-| `gemini_cli.config` | full session configuration at startup |
-| `gemini_cli.conversation_finished` | `turnCount`, `approvalMode` |
-
-Every signal carries `session.id`, `installation.id`, `active_approval_mode`, and `user.email` (when authenticated) as common attributes.
-
-### Traces
-
-Gemini CLI emits a trace per session covering the full turn lifecycle — LLM calls, tool executions, and agent runs — as nested spans. Find them in **Coralogix Tracing**.
+Once data is flowing, metrics appear in **Metrics Explorer** (search `gemini_cli`), logs in **Logs**, and traces in **Tracing** filtered by service name `gemini-cli`.
 
 ---
 
@@ -148,9 +107,9 @@ if [ -f "$HOME/path/to/gemini-cli/.env" ]; then
 fi
 export GEMINI_TELEMETRY_ENABLED=true
 export GEMINI_TELEMETRY_TARGET=local
-export GEMINI_TELEMETRY_OTLP_PROTOCOL=http
+export GEMINI_TELEMETRY_OTLP_PROTOCOL=grpc
 export GEMINI_TELEMETRY_OTLP_ENDPOINT="${CX_OTLP_ENDPOINT}"
-export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer ${CX_API_KEY},CX-Application-Name=${CX_APPLICATION_NAME},CX-Subsystem-Name=${CX_SUBSYSTEM_NAME}"
+export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer ${CX_API_KEY},cx-application-name=${CX_APPLICATION_NAME},cx-subsystem-name=${CX_SUBSYSTEM_NAME}"
 export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.subsystem.name=${CX_SUBSYSTEM_NAME}"
 ```
 
@@ -176,20 +135,59 @@ cp settings.json.example ~/.gemini/settings.json
 
 After running a session, check that telemetry arrived in Coralogix:
 
-1. **Logs** — Go to **Logs** and filter by your subsystem name (e.g. `gemini-cli-sessions`). Look for a `gemini_cli.config` event emitted at startup.
-2. **Metrics** — Go to **Metrics Explorer** and search for `gemini_cli`. Token usage and API request metrics appear within one export interval (~10 seconds).
+1. **Logs** — Go to **Logs** and filter by application name `gemini-cli` and subsystem name `gemini-cli-sessions`. Search for `logRecord.body:"CLI configuration loaded."` to find the startup config event emitted at the beginning of every session.
+2. **Metrics** — Go to **Metrics Explorer** and search for `gemini-cli`. Token usage and API request metrics appear within one export interval (~10 seconds).
 3. **Traces** — Go to **Tracing** and filter by service name `gemini-cli`.
 
 ---
 
-## Advanced configuration
+## Pre-built dashboard
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `GEMINI_TELEMETRY_LOG_PROMPTS` | `false` | Set to `true` to include prompt text in `gemini_cli.user_prompt` log events |
-| `GEMINI_TELEMETRY_ENABLED` | `false` | Master toggle for all telemetry |
-| `GEMINI_TELEMETRY_TARGET` | `local` | `local` = custom OTLP endpoint; `gcp` = Google Cloud |
-| `GEMINI_TELEMETRY_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP collector or ingress URL |
-| `GEMINI_TELEMETRY_OTLP_PROTOCOL` | `grpc` | `grpc` for Coralogix (recommended); `http` sends JSON which Coralogix drops |
-| `OTEL_EXPORTER_OTLP_HEADERS` | — | Auth and routing headers sent on every OTLP request |
-| `OTEL_RESOURCE_ATTRIBUTES` | — | Extra resource dimensions, e.g. `team=platform,env=prod` |
+`coralogix-gemini-cli-dashboard.json` is a ready-to-import Coralogix dashboard covering all Gemini CLI telemetry signals.
+
+### Import
+
+1. In Coralogix, go to **Dashboards** and click **New Dashboard → Import**.
+2. Upload `coralogix-gemini-cli-dashboard.json`.
+3. The dashboard loads immediately — no further configuration needed.
+
+### Sections and panels
+
+| Section | Panels |
+|---|---|
+| **Overview** | Sessions (24h), Total Tokens (24h), Input Tokens (24h), Output Tokens (24h), API Errors (24h), Tool Success Rate (24h) |
+| **Session activity** | Sessions over time, Model distribution |
+| **Token usage & efficiency** | Token volume by type, Token volume by model, Cache token ratio %, Thought tokens over time, Avg tokens per session |
+| **API performance** | API requests per minute, API latency p50/p90/p99, Error rate over time, Errors by type, Status code distribution |
+| **Tool usage** | Tool calls over time, Top tools by call count, Tool success rate by function, Tool latency by function, Decision breakdown (accept/reject/auto_accept/modify), MCP vs native split |
+| **File operations** | File operations over time by type, Lines changed over time |
+
+The **Agent runs** and **Resilience & errors** section stubs are included and ready to extend once you have agent or retry data flowing.
+
+### Confirmed metric names
+
+Coralogix inserts the OTel unit into the Prometheus metric name on ingestion. The actual names differ from the OTel spec names:
+
+| OTel metric | Prometheus name in Coralogix |
+|---|---|
+| `gemini_cli.session.count` | `gemini_cli_session_count_total` |
+| `gemini_cli.token.usage` | `gemini_cli_token_usage_total` |
+| `gemini_cli.api.request.count` | `gemini_cli_api_request_count_total` |
+| `gemini_cli.api.request.latency` | `gemini_cli_api_request_latency_ms_{bucket,sum,count,max,min}` |
+| `gemini_cli.tool.call.count` | `gemini_cli_tool_call_count_total` |
+| `gemini_cli.tool.call.latency` | `gemini_cli_tool_call_latency_ms_{bucket,sum,count,max,min}` |
+| `gemini_cli.model_routing.latency` | `gemini_cli_model_routing_latency_ms_{bucket,sum,count,max,min}` |
+| `gemini_cli.file.operation.count` | `gemini_cli_file_operation_count_total` |
+| `gemini_cli.lines.changed` | `gemini_cli_lines_changed_total` |
+
+### Log field paths
+
+Log events use `$d.logRecord.attributes['event.name']` for the event name (not the body). Common DataPrime filter pattern:
+
+```
+source logs | filter $d.logRecord.attributes['event.name'] == 'gemini_cli.api_error'
+```
+
+---
+
+For the full list of Gemini CLI telemetry configuration variables, see the [Gemini CLI configuration reference](https://geminicli.com/docs/reference/configuration).
