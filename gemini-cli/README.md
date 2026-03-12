@@ -18,12 +18,6 @@ Gemini CLI ships the full OpenTelemetry SDK and emits logs, metrics, and traces 
 - `.env` — stores your Coralogix API key and endpoint (git-ignored)
 - `settings.json.example` — optional `.gemini/settings.json` alternative to env vars
 
-### Why gRPC, not HTTP
-
-Gemini CLI's HTTP OTLP exporters (`@opentelemetry/exporter-*-otlp-http`) have `Content-Type: application/json` and `JsonTraceSerializer` hardcoded in source — there is no configuration or env var to switch them to protobuf. Coralogix accepts JSON OTLP requests (returns HTTP 200) but silently drops them without indexing.
-
-The gRPC exporters use protobuf, which Coralogix ingests correctly. `@opentelemetry/exporter-*-otlp-proto` (HTTP protobuf) is bundled in Gemini CLI but never invoked by its telemetry code path.
-
 ### How auth and routing headers reach Coralogix
 
 Gemini CLI's `settings.json` has no `headers` field. Instead, Gemini CLI constructs its OTLP exporters without hardcoded headers, so the standard `OTEL_EXPORTER_OTLP_HEADERS` env var is read as gRPC metadata by the underlying `@opentelemetry/exporter-*-otlp-grpc` packages. `activate.sh` sets this variable automatically with three values:
