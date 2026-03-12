@@ -8,6 +8,10 @@ No wrappers. No code changes to your projects. Gemini CLI emits OTLP natively; y
 
 ## How it works
 
+```
+Gemini CLI  →  OTLP/gRPC  →  Coralogix ingress  →  Metrics Explorer + Logs + Traces
+```
+
 Gemini CLI ships the full OpenTelemetry SDK and emits logs, metrics, and traces when `GEMINI_TELEMETRY_ENABLED=true` is set. This folder provides:
 
 - `activate.sh` — exports all required env vars into your shell in one step
@@ -138,6 +142,8 @@ After running a session, check that telemetry arrived in Coralogix:
 1. **Logs** — Go to **Logs** and filter by application name `gemini-cli` and subsystem name `gemini-cli-sessions`. Search for `logRecord.body:"CLI configuration loaded."` to find the startup config event emitted at the beginning of every session.
 2. **Metrics** — Go to **Metrics Explorer** and search for `gemini-cli`. Token usage and API request metrics appear within one export interval (~10 seconds).
 3. **Traces** — Go to **Tracing** and filter by service name `gemini-cli`.
+
+> **Note on prompt privacy:** `activate.sh` sets `GEMINI_TELEMETRY_LOG_PROMPTS=false` to suppress prompt logging. However, when using the `-p` flag (e.g. `gemini -p "your prompt"`), the prompt appears in `process.command_args` resource attributes regardless of this setting — the OTel Node.js SDK captures all process arguments automatically. Use interactive mode (`gemini`, then type your prompt) to keep prompt content out of telemetry.
 
 ---
 

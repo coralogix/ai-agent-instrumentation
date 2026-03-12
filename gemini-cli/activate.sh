@@ -38,9 +38,11 @@ export OTEL_EXPORTER_OTLP_HEADERS="authorization=Bearer ${CX_API_KEY},cx-applica
 
 export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.subsystem.name=${CX_SUBSYSTEM_NAME}"
 
-# ── Include prompt text in telemetry (off by default) ────────────────────────
-# Uncomment to capture prompt content in gemini_cli.user_prompt log events.
-export GEMINI_TELEMETRY_LOG_PROMPTS=true
+# ── Prompt logging — Gemini CLI defaults to true; set false to suppress ───────
+# Prompt content is logged by default. Uncomment the line below to include
+# prompts in gemini_cli.user_prompt log events, or leave as-is to suppress.
+export GEMINI_TELEMETRY_LOG_PROMPTS=false
+# export GEMINI_TELEMETRY_LOG_PROMPTS=true
 
 echo "✓  Gemini CLI → Coralogix telemetry configured"
 echo "   Endpoint : ${GEMINI_TELEMETRY_OTLP_ENDPOINT}"
