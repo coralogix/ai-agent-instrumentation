@@ -1,251 +1,1081 @@
 {
-  "id": "6Kr2t7BBSQimGyQc5k6Dg",
+  "id": "tSheVQcieUCGLE8f7WoaE",
   "name": "Claude Code Monitoring",
   "layout": {
     "sections": [
       {
-        "id": { "value": "3eb73e4a-ac49-43fc-8255-2bd38b6e2aa7" },
+        "id": {
+          "value": "3eb73e4a-ac49-43fc-8255-2bd38b6e2aa7"
+        },
         "rows": [
           {
-            "id": { "value": "380df313-da31-4324-9916-a0c7b9ac5cfa" },
-            "appearance": { "height": 17 },
+            "id": {
+              "value": "380df313-da31-4324-9916-a0c7b9ac5cfa"
+            },
+            "appearance": {
+              "height": 19
+            },
             "widgets": [
               {
-                "id": { "value": "b4926d87-b253-41a9-ad5c-b5a625910536" },
-                "title": "Total Sessions (24 h)",
+                "id": {
+                  "value": "b4926d87-b253-41a9-ad5c-b5a625910536"
+                },
+                "title": "Total Sessions",
                 "definition": {
                   "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_session_count_1_total{}[24h]))" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 50, "showInnerArc": false, "showOuterArc": false, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_VALUE", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": false, "decimalPrecision": false
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(increase(claude_code_session_count_total{}[24h]))"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 50,
+                    "showInnerArc": false,
+                    "showOuterArc": false,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_VALUE",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
                   }
                 }
               },
               {
-                "id": { "value": "2fb54179-532f-4af2-8666-19d176308ad3" },
-                "title": "Total Cost USD (24 h)",
+                "id": {
+                  "value": "2fb54179-532f-4af2-8666-19d176308ad3"
+                },
+                "title": "Total Cost (USD)",
                 "definition": {
                   "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_cost_usage_USD_total{}[24h]))" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 10, "showInnerArc": false, "showOuterArc": false, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_VALUE", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": false, "decimalPrecision": false
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(claude_code_cost_usage_USD_total{})"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 10,
+                    "showInnerArc": false,
+                    "showOuterArc": false,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_VALUE",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
                   }
                 }
               },
               {
-                "id": { "value": "52461997-4f82-4f23-ae70-11b8917c5370" },
+                "id": {
+                  "value": "52461997-4f82-4f23-ae70-11b8917c5370"
+                },
                 "title": "Total Tokens",
                 "definition": {
                   "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_token_usage_1_total{})" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 500000, "showInnerArc": true, "showOuterArc": true, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_UNSPECIFIED", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": true, "decimalPrecision": false
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(claude_code_token_usage_tokens_total{})"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 500000,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
                   }
                 }
               },
               {
-                "id": { "value": "18645712-c2f7-48a0-86a2-1f92d1735ce7" },
+                "id": {
+                  "value": "18645712-c2f7-48a0-86a2-1f92d1735ce7"
+                },
                 "title": "Active Time (sec)",
                 "definition": {
                   "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_active_time_total_s_total{})" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 3600, "showInnerArc": true, "showOuterArc": true, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_UNSPECIFIED", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": true, "decimalPrecision": false
-                  }
-                }
-              },
-              {
-                "id": { "value": "aa112233-0001-4000-b000-000000000001" },
-                "title": "Lines of Code Changed",
-                "definition": {
-                  "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_lines_of_code_count_total{})" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 10000, "showInnerArc": false, "showOuterArc": false, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_VALUE", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": false, "decimalPrecision": false
-                  }
-                }
-              },
-              {
-                "id": { "value": "aa112233-0001-4000-b000-000000000002" },
-                "title": "Total Commits",
-                "definition": {
-                  "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_commit_count_total{})" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 100, "showInnerArc": false, "showOuterArc": false, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-verbose)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-error)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_VALUE", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": false, "decimalPrecision": false
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "sum(claude_code_active_time_total_s_total{})"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 3600,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-verbose)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-error)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": false,
+                    "decimalPrecision": false
                   }
                 }
               }
             ]
           }
         ],
-        "options": { "internal": {} }
+        "options": {
+          "internal": {}
+        }
       },
       {
-        "id": { "value": "a74d9e0c-ee57-4abf-8847-28b8adefa03a" },
+        "id": {
+          "value": "a74d9e0c-ee57-4abf-8847-28b8adefa03a"
+        },
         "rows": [
           {
-            "id": { "value": "b09448d6-8bb4-4287-9515-d619da69f6c1" },
-            "appearance": { "height": 28 },
+            "id": {
+              "value": "b09448d6-8bb4-4287-9515-d619da69f6c1"
+            },
+            "appearance": {
+              "height": 19
+            },
             "widgets": [
               {
-                "id": { "value": "fc8d3e19-d748-4b2d-861d-552b37da0273" },
-                "title": "Sessions Over Time",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "d8bf3850-2ed6-4ffc-89bb-f04225a10ba8", "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_session_count_1_total{}[5m]))" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Sessions", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "ea90bb84-99ed-401f-9311-3d856149964b" },
-                "title": "Avg Session Duration (sec)",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "e539fed0-dead-4f27-b86a-33715634bb68", "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_active_time_total_s_total{}[24h])) / clamp_min(sum(increase(claude_code_session_count_1_total{}[24h])), 1)" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Avg Duration", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "f9c35598-2b81-4f93-9a92-dfd1696f0387" },
-                "title": "Tokens per Session",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "c3414e6a-5893-4e66-ac03-adc77dfd8926", "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_token_usage_1_total{}[24h])) / clamp_min(sum(increase(claude_code_session_count_1_total{}[24h])), 1)" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Tokens/Session", "isVisible": true, "colorScheme": "cold", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              }
-            ]
-          }
-        ],
-        "options": { "custom": { "name": "Session Activity", "collapsed": false, "color": { "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED" } } }
-      },
-      {
-        "id": { "value": "c11a2b3c-4d5e-6f70-8901-a2b3c4d5e6f7" },
-        "rows": [
-          {
-            "id": { "value": "d22b3c4d-5e6f-7081-9012-b3c4d5e6f7a8" },
-            "appearance": { "height": 28 },
-            "widgets": [
-              {
-                "id": { "value": "ca3522ba-b5ac-470f-9536-b80314d8c8ce" },
+                "id": {
+                  "value": "ca3522ba-b5ac-470f-9536-b80314d8c8ce"
+                },
                 "title": "Cost per Session (USD)",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "68adb9dc-513f-41e0-9d78-1e45141355d9", "query": { "metrics": { "promqlQuery": { "value": "sum(increase(claude_code_cost_usage_USD_total{}[24h])) / clamp_min(sum(increase(claude_code_session_count_1_total{}[24h])), 1)" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Cost/Session", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "68adb9dc-513f-41e0-9d78-1e45141355d9",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(claude_code_cost_usage_USD_total{}[24h])) / clamp_min(sum(increase(claude_code_session_count_total{}[24h])), 1)"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Cost/Session",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
               },
               {
-                "id": { "value": "c93756de-7520-4954-a596-abcd104beddc" },
+                "id": {
+                  "value": "c93756de-7520-4954-a596-abcd104beddc"
+                },
                 "title": "Cost per Model (USD)",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "ce76696d-9d85-43d2-9833-22f60404fd9a", "query": { "metrics": { "promqlQuery": { "value": "sum by (model) (claude_code_cost_usage_USD_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesNameTemplate": "{{model}}", "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Cost by Model", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "9ad12eb8-202d-44f9-b648-2b7baba7f549" },
-                "title": "Token Usage by Model",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "6dac9bc5-1075-4fdc-b718-898e80b9762f", "query": { "metrics": { "promqlQuery": { "value": "sum by (model) (claude_code_token_usage_1_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesNameTemplate": "{{model}}", "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Tokens by Model", "isVisible": true, "colorScheme": "cold", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "ce76696d-9d85-43d2-9833-22f60404fd9a",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (model) (claude_code_cost_usage_USD_total{})"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesNameTemplate": "{{model}}",
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Cost by Model",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
               }
             ]
           },
           {
-            "id": { "value": "e33c4d5e-6f70-8192-a023-c4d5e6f7a8b9" },
-            "appearance": { "height": 28 },
+            "id": {
+              "value": "1673d4c9-8812-498e-9b81-5363236fae12"
+            },
+            "appearance": {
+              "height": 19
+            },
             "widgets": [
               {
-                "id": { "value": "5fe5cd09-e5c1-47b3-83b6-9df305c7ef8b" },
+                "id": {
+                  "value": "5fe5cd09-e5c1-47b3-83b6-9df305c7ef8b"
+                },
                 "title": "Token Usage by Type",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "c74305b7-b422-451c-802a-44cf9164f751", "query": { "metrics": { "promqlQuery": { "value": "sum by (type) (claude_code_token_usage_1_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesNameTemplate": "{{type}}", "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Tokens by Type", "isVisible": true, "colorScheme": "cold", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "aa112233-0001-4000-b000-000000000003" },
-                "title": "Token API Usage Over Time",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "aa112233-0001-4000-b000-100000000003", "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_token_usage_tokens_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "API Tokens", "isVisible": true, "colorScheme": "cold", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "aa112233-0001-4000-b000-000000000004" },
-                "title": "Cost per Token (USD)",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "aa112233-0001-4000-b000-100000000004", "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_cost_usage_USD_total{}) / clamp_min(sum(claude_code_token_usage_tokens_total{}), 1)" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Cost/Token", "isVisible": true, "colorScheme": "warning", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              }
-            ]
-          }
-        ],
-        "options": { "custom": { "name": "Cost & Token Breakdown", "collapsed": false, "color": { "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED" } } }
-      },
-      {
-        "id": { "value": "7718bead-fa02-4136-bc95-a8e0dff52712" },
-        "rows": [
-          {
-            "id": { "value": "d8e9886b-5347-4024-9285-4e18fdf59258" },
-            "appearance": { "height": 28 },
-            "widgets": [
-              {
-                "id": { "value": "b74d8967-6148-41d1-a59d-a6aed7e89a64" },
-                "title": "Lines Added & Removed Over Time",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "2101f4a4-f011-4f2d-ae87-acc425e00114", "query": { "metrics": { "promqlQuery": { "value": "sum by (change_type) (claude_code_lines_of_code_count_1_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesNameTemplate": "{{change_type}}", "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Lines by Type", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "219f69d0-b830-4f97-a910-e2967ef44985" },
-                "title": "Commits Over Time",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "cf2cd40d-664f-4a4d-be3c-b8a45862517f", "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_commit_count_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Commits", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "aa112233-0001-4000-b000-000000000005" },
-                "title": "Lines of Code (All Types)",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "aa112233-0001-4000-b000-100000000005", "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_lines_of_code_count_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Total Lines", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              }
-            ]
-          }
-        ],
-        "options": { "custom": { "name": "Code Impact", "collapsed": false, "color": { "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED" } } }
-      },
-      {
-        "id": { "value": "709e2ce4-b744-418a-b270-959f271426d8" },
-        "rows": [
-          {
-            "id": { "value": "5516e231-e675-4d85-aa46-ee58141cc5b2" },
-            "appearance": { "height": 19 },
-            "widgets": [
-              {
-                "id": { "value": "3bfa59aa-408e-4fda-b34c-ebaf78f5d642" },
-                "title": "Edit Acceptance Rate (%)",
                 "definition": {
-                  "gauge": {
-                    "query": { "metrics": { "promqlQuery": { "value": "100 * sum(claude_code_code_edit_tool_decision_total{decision=\"accept\"}) / clamp_min(sum(claude_code_code_edit_tool_decision_total{}), 1)" }, "aggregation": "AGGREGATION_LAST", "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE" } },
-                    "min": 0, "max": 100, "showInnerArc": true, "showOuterArc": true, "unit": "UNIT_NUMBER",
-                    "thresholds": [ { "from": 0, "color": "var(--c-severity-log-error)" }, { "from": 33, "color": "var(--c-severity-log-warning)" }, { "from": 66, "color": "var(--c-severity-log-verbose)" } ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "thresholdBy": "THRESHOLD_BY_UNSPECIFIED", "decimal": 2, "thresholdType": "THRESHOLD_TYPE_RELATIVE",
-                    "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" },
-                    "legendBy": "LEGEND_BY_GROUPS", "displaySeriesName": true, "decimalPrecision": false
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "c74305b7-b422-451c-802a-44cf9164f751",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "claude_code_token_usage_tokens_total{}"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesNameTemplate": "{{type}}",
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Tokens by Type",
+                        "isVisible": true,
+                        "colorScheme": "cold",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
                   }
                 }
               },
               {
-                "id": { "value": "48e5b2bb-a339-4c06-afc1-c2d2bcd2a9a7" },
-                "title": "Edit Decisions by Type",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "055e28af-75cd-4ee1-b942-cb22467bf3a1", "query": { "metrics": { "promqlQuery": { "value": "sum by (decision) (claude_code_code_edit_tool_decision_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesNameTemplate": "{{decision}}", "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Decision Type", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
-              },
-              {
-                "id": { "value": "447d50c7-16ff-41f8-a7ee-2b5cda74a53b" },
-                "title": "Edit Decisions Over Time",
-                "definition": { "lineChart": { "legend": { "isVisible": true, "columns": [], "groupByQuery": true, "placement": "LEGEND_PLACEMENT_AUTO" }, "tooltip": { "showLabels": false, "type": "TOOLTIP_TYPE_ALL" }, "queryDefinitions": [ { "id": "9839d3d5-3456-42d4-b526-3cd924978893", "query": { "metrics": { "promqlQuery": { "value": "sum(claude_code_code_edit_tool_decision_total{})" }, "filters": [], "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER", "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT" } }, "seriesCountLimit": "20", "unit": "UNIT_UNSPECIFIED", "scaleType": "SCALE_TYPE_LINEAR", "name": "Total Decisions", "isVisible": true, "colorScheme": "classic", "resolution": { "bucketsPresented": 96 }, "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED", "decimal": 2, "hashColors": false, "decimalPrecision": false, "intervalResolution": { "auto": { "minimumInterval": "15s", "maximumDataPoints": 200 } } } ], "stackedLine": "STACKED_LINE_UNSPECIFIED", "connectNulls": false } }
+                "id": {
+                  "value": "9ad12eb8-202d-44f9-b648-2b7baba7f549"
+                },
+                "title": "Token Usage by Model",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "6dac9bc5-1075-4fdc-b718-898e80b9762f",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(claude_code_token_usage_tokens_total{}) by (model)"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesNameTemplate": "{{model}}",
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Tokens by Model",
+                        "isVisible": true,
+                        "colorScheme": "cold",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
               }
             ]
           }
         ],
-        "options": { "custom": { "name": "Code Edit Behaviour", "collapsed": false, "color": { "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED" } } }
+        "options": {
+          "custom": {
+            "name": "Cost & Token Usage",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
       },
       {
-        "id": { "value": "15c9a73c-e944-4d5d-9f57-c2c60cdbc9b3" },
+        "id": {
+          "value": "709e2ce4-b744-418a-b270-959f271426d8"
+        },
         "rows": [
           {
-            "id": { "value": "3cd113e6-a145-4ff6-9600-caf1e1dd9354" },
-            "appearance": { "height": 55 },
+            "id": {
+              "value": "5516e231-e675-4d85-aa46-ee58141cc5b2"
+            },
+            "appearance": {
+              "height": 19
+            },
             "widgets": [
               {
-                "id": { "value": "58d2abef-c294-46fa-b8a1-562bebb1e3ed" },
+                "id": {
+                  "value": "3bfa59aa-408e-4fda-b34c-ebaf78f5d642"
+                },
+                "title": "Edit Tool Acceptance Rate (%)",
+                "definition": {
+                  "gauge": {
+                    "query": {
+                      "metrics": {
+                        "promqlQuery": {
+                          "value": "100 * sum(claude_code_code_edit_tool_decision_total{decision=\"accept\"}) / clamp_min(sum(claude_code_code_edit_tool_decision_total{}), 1)"
+                        },
+                        "aggregation": "AGGREGATION_LAST",
+                        "filters": [],
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
+                      }
+                    },
+                    "min": 0,
+                    "max": 100,
+                    "showInnerArc": true,
+                    "showOuterArc": true,
+                    "unit": "UNIT_NUMBER",
+                    "thresholds": [
+                      {
+                        "from": 0,
+                        "color": "var(--c-severity-log-error)"
+                      },
+                      {
+                        "from": 33,
+                        "color": "var(--c-severity-log-warning)"
+                      },
+                      {
+                        "from": 66,
+                        "color": "var(--c-severity-log-verbose)"
+                      }
+                    ],
+                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                    "thresholdBy": "THRESHOLD_BY_UNSPECIFIED",
+                    "decimal": 2,
+                    "thresholdType": "THRESHOLD_TYPE_RELATIVE",
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "legendBy": "LEGEND_BY_GROUPS",
+                    "displaySeriesName": true,
+                    "decimalPrecision": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "48e5b2bb-a339-4c06-afc1-c2d2bcd2a9a7"
+                },
+                "title": "Code Edit Tool Decisions by Type",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "055e28af-75cd-4ee1-b942-cb22467bf3a1",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (decision) (claude_code_code_edit_tool_decision_total{})"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesNameTemplate": "{{decision}}",
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Decision Type",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "447d50c7-16ff-41f8-a7ee-2b5cda74a53b"
+                },
+                "title": "Code Edit Tool Decisions Over Time",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "9839d3d5-3456-42d4-b526-3cd924978893",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(claude_code_code_edit_tool_decision_total{})"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Total Decisions",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Tool Usage",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "7718bead-fa02-4136-bc95-a8e0dff52712"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "d8e9886b-5347-4024-9285-4e18fdf59258"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "219f69d0-b830-4f97-a910-e2967ef44985"
+                },
+                "title": "Commits Over Time",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "cf2cd40d-664f-4a4d-be3c-b8a45862517f",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(claude_code_commit_count_total{})"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Commits",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "b74d8967-6148-41d1-a59d-a6aed7e89a64"
+                },
+                "title": "Lines of Code Added & Removed",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO"
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "2101f4a4-f011-4f2d-ae87-acc425e00114",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum by (type) (claude_code_lines_of_code_count_total{})"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesNameTemplate": "{{type}}",
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Lines by Type",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Engineering Metrics",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "a9b748f1-a42e-47b1-aefa-5b8fb38683c0"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "8c05bead-0a10-4632-9b27-05a6668fb2be"
+            },
+            "appearance": {
+              "height": 19
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "f9c35598-2b81-4f93-9a92-dfd1696f0387"
+                },
+                "title": "Tokens per Session",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "c3414e6a-5893-4e66-ac03-adc77dfd8926",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(claude_code_token_usage_tokens_total{}) by (session_id)"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Tokens/Session",
+                        "isVisible": true,
+                        "colorScheme": "cold",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "fc8d3e19-d748-4b2d-861d-552b37da0273"
+                },
+                "title": "Sessions Over Time",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "d8bf3850-2ed6-4ffc-89bb-f04225a10ba8",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(claude_code_session_count_total{}[5m]))"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Sessions",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              },
+              {
+                "id": {
+                  "value": "ea90bb84-99ed-401f-9311-3d856149964b"
+                },
+                "title": "Avg Session Duration (sec)",
+                "definition": {
+                  "lineChart": {
+                    "legend": {
+                      "isVisible": true,
+                      "columns": [],
+                      "groupByQuery": true,
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
+                    },
+                    "tooltip": {
+                      "showLabels": false,
+                      "type": "TOOLTIP_TYPE_ALL"
+                    },
+                    "queryDefinitions": [
+                      {
+                        "id": "e539fed0-dead-4f27-b86a-33715634bb68",
+                        "query": {
+                          "metrics": {
+                            "promqlQuery": {
+                              "value": "sum(increase(claude_code_active_time_total_s_total{}[24h])) / clamp_min(sum(increase(claude_code_session_count_total{}[24h])), 1)"
+                            },
+                            "filters": [],
+                            "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                            "seriesLimitType": "METRICS_SERIES_LIMIT_TYPE_BY_SERIES_COUNT"
+                          }
+                        },
+                        "seriesCountLimit": "20",
+                        "unit": "UNIT_UNSPECIFIED",
+                        "scaleType": "SCALE_TYPE_LINEAR",
+                        "name": "Avg Duration",
+                        "isVisible": true,
+                        "colorScheme": "classic",
+                        "resolution": {
+                          "bucketsPresented": 96
+                        },
+                        "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED",
+                        "decimal": 2,
+                        "hashColors": false,
+                        "decimalPrecision": false,
+                        "intervalResolution": {
+                          "auto": {
+                            "minimumInterval": "15s",
+                            "maximumDataPoints": 200
+                          }
+                        }
+                      }
+                    ],
+                    "stackedLine": "STACKED_LINE_UNSPECIFIED",
+                    "connectNulls": false
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "options": {
+          "custom": {
+            "name": "Sessions",
+            "collapsed": false,
+            "color": {
+              "predefined": "SECTION_PREDEFINED_COLOR_UNSPECIFIED"
+            }
+          }
+        }
+      },
+      {
+        "id": {
+          "value": "15c9a73c-e944-4d5d-9f57-c2c60cdbc9b3"
+        },
+        "rows": [
+          {
+            "id": {
+              "value": "3cd113e6-a145-4ff6-9600-caf1e1dd9354"
+            },
+            "appearance": {
+              "height": 55
+            },
+            "widgets": [
+              {
+                "id": {
+                  "value": "58d2abef-c294-46fa-b8a1-562bebb1e3ed"
+                },
                 "title": "Prompt Log",
                 "definition": {
                   "dataTable": {
@@ -260,26 +1090,36 @@
                     "resultsPerPage": 100,
                     "rowStyle": "ROW_STYLE_ONE_LINE",
                     "columns": [
-                      { "field": "$m.timestamp" },
-                      { "field": "$d" },
-                      { "field": "$l.applicationname" },
-                      { "field": "$l.subsystemname" }
+                      {
+                        "field": "$m.timestamp"
+                      },
+                      {
+                        "field": "$d"
+                      },
+                      {
+                        "field": "$l.applicationname"
+                      },
+                      {
+                        "field": "$l.subsystemname"
+                      }
                     ],
-                    "dataModeType": "DATA_MODE_TYPE_HIGH_UNSPECIFIED"
+                    "dataModeType": "DATA_MODE_TYPE_ARCHIVE"
                   }
                 }
               }
             ]
           }
         ],
-        "options": { "internal": {} }
+        "options": {
+          "internal": {}
+        }
       }
     ]
   },
   "variables": [],
   "variablesV2": [],
   "filters": [],
-  "relativeTimeFrame": "7200s",
+  "relativeTimeFrame": "1800s",
   "annotations": [],
   "off": {},
   "actions": []

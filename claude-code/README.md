@@ -28,16 +28,14 @@ All metrics use **delta temporality** — the format Coralogix expects for count
 
 | Metric | Labels | What it tracks |
 |---|---|---|
-| `claude_code_session_count_1_total` | `session.id`, `user.id` | Sessions started |
-| `claude_code_session_count_total` | — | Session count (no extra labels) |
-| `claude_code_token_usage_1_total` | `model`, `type` | Tokens by model and type (input / output / cache) |
-| `claude_code_token_usage_tokens_total` | — | Raw token count from API calls |
+| `claude_code_session_count_total` | `session_id`, `user_account_uuid` | Sessions started |
+| `claude_code_token_usage_tokens_total` | `model`, `type` | Tokens by model and type (`input`, `output`, `cacheRead`, `cacheCreation`) |
 | `claude_code_cost_usage_USD_total` | `model` | Estimated USD cost per model |
-| `claude_code_lines_of_code_count_1_total` | `change_type` | Lines added and removed |
-| `claude_code_lines_of_code_count_total` | — | Total lines changed |
+| `claude_code_lines_of_code_count_total` | `type` | Lines added and removed |
 | `claude_code_commit_count_total` | — | Git commits made |
-| `claude_code_code_edit_tool_decision_total` | `decision` | Accept / reject on code edits |
-| `claude_code_active_time_total_s_total` | — | Seconds Claude was actively processing |
+| `claude_code_pull_request_count_total` | — | Pull requests created |
+| `claude_code_code_edit_tool_decision_total` | `decision`, `source`, `tool_name`, `language` | Accept / reject on code edits |
+| `claude_code_active_time_total_s_total` | `type` | Seconds Claude was actively processing (`cli` = AI/tool work, `user` = keyboard interaction) |
 
 ### Log events
 
@@ -45,12 +43,13 @@ Log events are routed to the subsystem you configure in `.env`. Query them in **
 
 | Event type | Key attributes |
 |---|---|
-| `claude_code.user_prompt` | `session.id`, `user.id`, `prompt` (opt-in), `model` |
+| `claude_code.user_prompt` | `session.id`, `user.account_uuid`, `prompt` (opt-in), `model` |
 | `claude_code.api_request` | `model`, token counts, cost, latency |
 | `claude_code.api_error` | `status`, error message |
 | `claude_code.tool_result` | tool name, duration, outcome |
+| `claude_code.tool_decision` | tool name, `decision`, `source` |
 
-Every signal carries `session.id`, `user.id`, `user.email`, `organization.id`, `app.version`, and `terminal.type`.
+Every signal carries `session.id`, `user.account_uuid`, `user.email`, `organization.id`, `app.version`, and `terminal.type`.
 
 ---
 
