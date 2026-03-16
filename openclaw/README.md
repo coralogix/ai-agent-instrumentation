@@ -44,7 +44,7 @@ Trace spans are exported for every model run, webhook, and message processing ev
 
 ### Logs
 
-Structured JSONL logs are exported over OTLP. Query them in **Coralogix Logs** filtered by application name `openclaw` and subsystem `openclaw-gateway`.
+Log export is disabled by default (`logs: false`) to keep volume manageable. Set `diagnostics.otel.logs: true` to enable it. When enabled, OpenClaw exports its structured gateway logs as OTel log records over OTLP. Query them in **Coralogix Logs** filtered by application name `openclaw` and subsystem `openclaw-gateway`.
 
 ---
 
