@@ -8,10 +8,6 @@ No wrappers. No code changes to your projects. Gemini CLI emits OTLP natively; y
 
 ## How it works
 
-```
-Gemini CLI  →  OTLP/gRPC  →  Coralogix ingress  →  Metrics Explorer + Logs + Traces
-```
-
 Gemini CLI ships the full OpenTelemetry SDK and emits logs, metrics, and traces when `GEMINI_TELEMETRY_ENABLED=true` is set. This folder provides:
 
 - `activate.sh` — exports all required env vars into your shell in one step
