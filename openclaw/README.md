@@ -156,12 +156,6 @@ To reduce the flush interval during testing, add to the `otel` block:
 | `diagnostics.otel.logs` | `false` | Enable OTLP log export (can be high volume) |
 | `diagnostics.flags` | — | Enable targeted debug logs without raising global log level |
 
-To add custom resource attributes for multi-team environments, use the `OTEL_RESOURCE_ATTRIBUTES` env var:
-
-```bash
-export OTEL_RESOURCE_ATTRIBUTES="team=platform,env=prod"
-```
-
 ---
 
 ## Related links
