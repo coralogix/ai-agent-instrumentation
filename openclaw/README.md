@@ -1,4 +1,4 @@
-# OpenClaw → Coralogix
+# OpenClaw - Coralogix
 
 Ship every OpenClaw gateway session — token usage, costs, model runs, message flow, webhook activity, and session state - directly into Coralogix using OpenClaw's built-in OpenTelemetry support.
 
@@ -122,7 +122,7 @@ openclaw gateway restart
 
 After starting the gateway and running a session:
 
-1. **Metrics** — Go to **Metrics Explorer** and search for `openclaw`. Token and cost metrics appear within one flush interval (default 60 seconds, lower to `10000` for testing).
+1. **Metrics** — Go to **Metrics Explorer** and search for `openclaw`. Metrics appear within one flush interval (default 60 seconds).
 2. **Traces** — Go to **Tracing** and filter by service name `openclaw-gateway`.
 3. **Logs** — Go to **Logs** and filter by application name `openclaw` and subsystem `openclaw-gateway`.
 
