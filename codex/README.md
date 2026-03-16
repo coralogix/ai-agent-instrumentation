@@ -1,4 +1,4 @@
-# Codex CLI → Coralogix
+# Codex CLI - Coralogix
 
 Forward every Codex CLI session — API requests, tool calls, SSE events, and prompt activity — directly into Coralogix using Codex's built-in OpenTelemetry support.
 
@@ -8,9 +8,6 @@ No wrappers. No code changes. Codex emits OTLP natively; you just point it at yo
 
 ## How it works
 
-```
-Codex CLI  →  OTLP/HTTP  →  Coralogix ingress  →  Logs + Traces
-```
 
 Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.codex/config.toml`. This folder provides:
 

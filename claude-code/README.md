@@ -1,4 +1,4 @@
-# Claude Code → Coralogix
+# Claude Code - Coralogix
 
 Ship every Claude Code session — token usage, costs, code changes, tool decisions, and prompt logs — directly into Coralogix using Claude Code's built-in OpenTelemetry support.
 
@@ -7,10 +7,6 @@ No agents. No wrappers. No code changes to your projects. Claude Code emits OTLP
 ---
 
 ## How it works
-
-```
-Claude Code  →  OTLP/HTTP  →  Coralogix ingress  →  Metrics Explorer + Logs + Dashboards
-```
 
 Claude Code exposes telemetry via the OpenTelemetry SDK when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set. This repo provides:
 

@@ -1,0 +1,29 @@
+{
+  "plugins": {
+    "allow": ["diagnostics-otel"],
+    "entries": {
+      "diagnostics-otel": {
+        "enabled": true
+      }
+    }
+  },
+  "diagnostics": {
+    "enabled": true,
+    "otel": {
+      "enabled": true,
+      "endpoint": "https://ingress.<your-region>.coralogix.com",
+      "protocol": "http/protobuf",
+      "serviceName": "openclaw-gateway",
+      "traces": true,
+      "metrics": true,
+      "logs": false,
+      "flushIntervalMs": 60000,
+      "sampleRate": 1.0,
+      "headers": {
+        "Authorization": "Bearer <your-send-your-data-api-key>",
+        "cx-application-name": "openclaw",
+        "cx-subsystem-name": "openclaw-gateway"
+      }
+    }
+  }
+}
