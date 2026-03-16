@@ -54,20 +54,48 @@ Structured JSONL logs are exported over OTLP. Query them in **Coralogix Logs** f
 
 Follow the [OpenClaw installation guide](https://docs.openclaw.ai/getting-started/installation).
 
-### 2. Configure your Coralogix credentials
+### 2. Add the Coralogix OTel config to your existing OpenClaw config
 
-Copy the example config:
+OpenClaw stores all config in `~/.openclaw/openclaw.json`. **Do not replace this file** - it contains your channels, auth, and agent settings set up during onboarding. Instead, merge the following two blocks into it:
 
-```bash
-cp openclaw.json.example openclaw.json
+Open `~/.openclaw/openclaw.json` and add:
+
+```json
+{
+  "plugins": {
+    "allow": ["diagnostics-otel"],
+    "entries": {
+      "diagnostics-otel": { "enabled": true }
+    }
+  },
+  "diagnostics": {
+    "enabled": true,
+    "otel": {
+      "enabled": true,
+      "endpoint": "https://ingress.<your-region>.coralogix.com",
+      "protocol": "http/protobuf",
+      "serviceName": "openclaw-gateway",
+      "traces": true,
+      "metrics": true,
+      "logs": false,
+      "flushIntervalMs": 60000,
+      "sampleRate": 1.0,
+      "headers": {
+        "Authorization": "Bearer <your-send-your-data-api-key>",
+        "cx-application-name": "openclaw",
+        "cx-subsystem-name": "openclaw-gateway"
+      }
+    }
+  }
+}
 ```
 
-Open `openclaw.json` and fill in the three placeholders:
+If your config already has a `plugins` block, add `"diagnostics-otel"` to the existing `allow` array and `entries` object rather than creating a second block.
 
 | Placeholder | Value |
 |---|---|
 | `<your-region>` | Your Coralogix region (e.g. `eu1`, `us1`, `ap1`) |
-| `<your-send-your-data-api-key>` | Your Send-Your-Data API key from **Settings - API Keys** |
+| `<your-send-your-data-api-key>` | Your Send-Your-Data API key from **Settings → API Keys** |
 | `cx-application-name` / `cx-subsystem-name` | Any name you want to group data under in Coralogix |
 
 **OTLP ingress by region:**
@@ -82,39 +110,11 @@ Open `openclaw.json` and fill in the three placeholders:
 | `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
 | `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
 
-### 3. Apply the OpenClaw config
-
-Copy `openclaw.json` to your OpenClaw config directory and update the credentials:
+### 3. Restart the gateway
 
 ```bash
-cp openclaw.json ~/.openclaw/openclaw.json
+openclaw gateway restart
 ```
-
-Open `~/.openclaw/openclaw.json` and replace the placeholder values:
-
-```json
-{
-  "diagnostics": {
-    "otel": {
-      "endpoint": "https://ingress.eu1.coralogix.com",
-      "headers": {
-        "Authorization": "Bearer <your-cx-api-key>",
-        "cx-application-name": "openclaw",
-        "cx-subsystem-name": "openclaw-gateway"
-      }
-    }
-  }
-}
-```
-
-### 4. Enable the plugin and start the gateway
-
-```bash
-openclaw plugins enable diagnostics-otel
-openclaw gateway run
-```
-
-Alternatively, the plugin is already enabled in the example config via the `plugins.entries` block — no separate command needed if you copied `openclaw.json.example` directly.
 
 ---
 
