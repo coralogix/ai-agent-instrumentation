@@ -18,24 +18,19 @@ OpenClaw ships a `diagnostics-otel` plugin that emits traces, metrics, and logs 
 
 ### Metrics
 
-All metrics appear in **Metrics Explorer** when you search `openclaw`.
+All metrics appear in **Metrics Explorer** when you search `openclaw`. For the full list of ingested metrics, open Metrics Explorer and filter by `cx_subsystem_name = openclaw-gateway`.
 
-| Metric | Type | Labels | What it tracks |
-|---|---|---|---|
-| `openclaw.tokens` | counter | `openclaw.token`, `openclaw.channel`, `openclaw.provider`, `openclaw.model` | Token usage by type (input/output/cache) |
-| `openclaw.cost.usd` | counter | `openclaw.channel`, `openclaw.provider`, `openclaw.model` | Estimated USD cost |
-| `openclaw.context.tokens` | histogram | `openclaw.context`, `openclaw.channel`, `openclaw.provider`, `openclaw.model` | Context window size per run |
-| `openclaw.run.duration_ms` | histogram | `openclaw.channel`, `openclaw.provider`, `openclaw.model` | Model run duration |
-| `openclaw.message.processed` | counter | `openclaw.channel`, `openclaw.outcome` | Messages processed |
-| `openclaw.message.queued` | counter | `openclaw.channel`, `openclaw.source` | Messages queued |
-| `openclaw.message.duration_ms` | histogram | `openclaw.channel`, `openclaw.outcome` | Message processing duration |
-| `openclaw.webhook.received` | counter | `openclaw.channel`, `openclaw.webhook` | Incoming webhooks |
-| `openclaw.webhook.processed` | counter | `openclaw.channel`, `openclaw.webhook` | Webhooks handled |
-| `openclaw.webhook.error` | counter | `openclaw.channel`, `openclaw.webhook` | Webhook errors |
-| `openclaw.session.state` | counter | `openclaw.state`, `openclaw.reason` | Session state transitions |
-| `openclaw.session.stuck` | counter | `openclaw.state` | Stuck session warnings |
-| `openclaw.queue.depth` | histogram | `openclaw.lane` | Queue depth |
-| `openclaw.queue.wait_ms` | histogram | `openclaw.lane` | Queue wait time |
+Coralogix converts OTel metric names to Prometheus format on ingestion — dots become underscores and the unit is inserted into the name (e.g. `openclaw.tokens` → `openclaw_tokens_1_total`).
+
+A few key examples:
+
+| OTel metric | Prometheus name in Coralogix | What it tracks |
+|---|---|---|
+| `openclaw.tokens` | `openclaw_tokens_1_total` | Token usage (`openclaw_token`, `openclaw_model`, `openclaw_provider`, `openclaw_channel`) |
+| `openclaw.run.duration_ms` | `openclaw_run_duration_ms_{bucket,sum,count,min,max}` | Model run duration |
+| `openclaw.message.processed` | `openclaw_message_processed_1_total` | Messages processed per channel and outcome |
+| `openclaw.queue.depth` | `openclaw_queue_depth_1_{bucket,sum,count,min,max}` | Command queue depth per lane |
+| `openclaw.session.state` | `openclaw_session_state_1_total` | Session state transitions |
 
 ### Traces
 
