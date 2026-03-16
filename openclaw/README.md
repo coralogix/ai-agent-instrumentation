@@ -10,7 +10,7 @@ OpenClaw emits OTLP natively via the `diagnostics-otel` plugin; you just point i
 
 OpenClaw ships a `diagnostics-otel` plugin that emits traces, metrics, and logs when enabled in `~/.openclaw/openclaw.json`. This folder provides:
 
-- `openclaw.json.example` — ready-to-use OpenClaw config with OTel enabled
+- `openclaw.json.example` - ready-to-use OpenClaw config with OTel enabled
 
 ---
 
@@ -19,8 +19,6 @@ OpenClaw ships a `diagnostics-otel` plugin that emits traces, metrics, and logs 
 ### Metrics
 
 All metrics appear in **Metrics Explorer** when you search `openclaw`. For the full list of ingested metrics, open Metrics Explorer and filter by `cx_subsystem_name = openclaw-gateway`.
-
-Coralogix converts OTel metric names to Prometheus format on ingestion — dots become underscores and the unit is inserted into the name (e.g. `openclaw.tokens` → `openclaw_tokens_1_total`).
 
 A few key examples:
 
