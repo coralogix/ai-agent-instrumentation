@@ -130,6 +130,8 @@ Or use Claude Code's own settings file at `~/.claude/settings.json`:
 
 Import `coralogix-dashboard.json` for an instant view of all signals.
 
+![Claude Code Monitoring dashboard showing KPIs (sessions, cost, tokens, active time) and Cost & Token Usage charts](dashboard-overview.png)
+
 **Sections:**
 
 | Section | What you see |
