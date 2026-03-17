@@ -1,5 +1,5 @@
 {
-  "id": "tSheVQcieUCGLE8f7WoaE",
+  "id": "l7hHxXjKfsUQjJXEf2N01",
   "name": "Claude Code Monitoring",
   "layout": {
     "sections": [
@@ -85,9 +85,9 @@
                         "promqlQuery": {
                           "value": "sum(claude_code_cost_usage_USD_total{})"
                         },
-                        "aggregation": "AGGREGATION_LAST",
+                        "aggregation": "AGGREGATION_SUM",
                         "filters": [],
-                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
                         "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
                       }
                     },
@@ -118,7 +118,11 @@
                       "isVisible": true,
                       "columns": [],
                       "groupByQuery": true,
-                      "placement": "LEGEND_PLACEMENT_AUTO"
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
                     },
                     "legendBy": "LEGEND_BY_GROUPS",
                     "displaySeriesName": false,

@@ -107,7 +107,7 @@ export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.s
 export OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta
 ```
 
-Or use Claude Code's own settings file at `~/.config/claude-code/settings.json`:
+Or use Claude Code's own settings file at `~/.claude/settings.json`:
 
 ```json
 {
@@ -129,6 +129,8 @@ Or use Claude Code's own settings file at `~/.config/claude-code/settings.json`:
 ## Pre-built dashboard
 
 Import `coralogix-dashboard.json` for an instant view of all signals.
+
+![Claude Code Monitoring dashboard showing KPIs (sessions, cost, tokens, active time) and Cost & Token Usage charts](dashboard-overview.png)
 
 **Sections:**
 
