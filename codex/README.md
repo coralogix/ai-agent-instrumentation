@@ -16,7 +16,6 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 
 - `config.toml.example` — the OTel block to merge into your Codex config
 - `.env.example` — stores your Coralogix credentials (git-ignored)
-- `gen_dashboard.py` — regenerates `coralogix-codex-dashboard.json` from confirmed DataPrime patterns
 - `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
 > **Metrics export** is not yet supported by Codex CLI — see [openai/codex#10277](https://github.com/openai/codex/issues/10277).
