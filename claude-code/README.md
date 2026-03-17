@@ -76,7 +76,7 @@ In [Claude.ai](https://claude.ai/), navigate to **Admin Settings → Claude Code
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "<YOUR_CX_OTLP_ENDPOINT>",
     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <YOUR_CX_API_KEY>",
-    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=<APP_NAME>,cx.subsystem.name=<SUBSYSTEM_NAME>",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=claude-code-sessions",
     "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta"
   }
 }
@@ -171,7 +171,7 @@ Alternatively, use Claude Code's own settings file at `~/.claude/settings.json`:
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "https://ingress.eu1.coralogix.com",
     "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <YOUR_CX_API_KEY>",
-    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=<APP>,cx.subsystem.name=<SUBSYSTEM>",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=claude-code-sessions",
     "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta"
   }
 }
