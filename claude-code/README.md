@@ -51,7 +51,60 @@ Every signal carries `session.id`, `user.account_uuid`, `user.email`, `organizat
 
 ## Setup
 
-### 1. Configure your Coralogix credentials
+There are two deployment paths depending on whether you need org-wide automatic rollout or per-developer setup.
+
+---
+
+### Option A — Org-wide via Claude Code Managed Settings (recommended for teams)
+
+Claude Code's [server-managed settings](https://code.claude.com/docs/en/server-managed-settings) (Public Beta) lets you push the Coralogix configuration to every developer in your organization automatically. No shell scripts, no `.env` distribution, no per-developer action required.
+
+**Requirements:** Claude for Teams or Enterprise · Claude Code ≥ 2.1.38
+
+#### 1. Open the admin console
+
+In [Claude.ai](https://claude.ai/), navigate to **Admin Settings → Claude Code → Managed Settings** and click **Manage**.
+
+#### 2. Paste the settings JSON
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "<YOUR_CX_OTLP_ENDPOINT>",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <YOUR_CX_API_KEY>",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=<APP_NAME>,cx.subsystem.name=<SUBSYSTEM_NAME>",
+    "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta"
+  }
+}
+```
+
+Replace the placeholders with your values (see the credentials section below for OTLP endpoint by region).
+
+#### 3. Click "Add settings"
+
+![Claude.ai admin console showing the Managed Settings dialog with the OTLP configuration JSON pasted in](managed-settings-admin.png)
+
+Settings are delivered to all Claude Code clients at their next startup, or within the hourly polling cycle for running sessions.
+
+#### What developers experience
+
+On their next `claude` startup, developers see a one-time security approval dialog listing the env vars being configured by the org. They select **Yes, I trust these settings** and Claude Code restarts. Telemetry flows from that point forward — no further action needed.
+
+![Claude Code terminal showing the managed settings approval prompt listing OTEL env vars](managed-settings-approval.png)
+
+> **Note on OTEL and restarts:** OpenTelemetry configuration takes effect on a full Claude Code restart, not just session reload. After the approval dialog, Claude Code restarts automatically.
+
+---
+
+### Option B — Per-developer setup
+
+Use this if your organization is not on Claude for Teams/Enterprise, or if you prefer not to use server-managed settings.
+
+#### 1. Configure your Coralogix credentials
 
 ```bash
 cp .env.example .env
@@ -80,16 +133,16 @@ Find your Send-Your-Data API key under **Settings → API Keys** in your Coralog
 | `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
 | `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
 
-### 2. Activate telemetry and start Claude
+#### 2. Activate telemetry and start Claude
 
 ```bash
 source activate.sh
 claude
 ```
 
-`activate.sh` exports all OTEL variables into your current shell. It must be sourced (not executed) so the variables persist. Re-run it in each new terminal, or see the persistent setup below.
+`activate.sh` exports all OTEL variables into your current shell. It must be sourced (not executed) so the variables persist. Re-run it in each new terminal, or make it permanent as below.
 
-### 3. Make it permanent (recommended)
+#### 3. Make it permanent
 
 Add the following to `~/.zshrc` (or `~/.bashrc`) so every terminal automatically has telemetry enabled:
 
@@ -107,7 +160,7 @@ export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.s
 export OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta
 ```
 
-Or use Claude Code's own settings file at `~/.claude/settings.json`:
+Alternatively, use Claude Code's own settings file at `~/.claude/settings.json`:
 
 ```json
 {
