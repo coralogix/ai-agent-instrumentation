@@ -1,5 +1,5 @@
 {
-  "id": "l7hHxXjKfsUQjJXEf2N01",
+  "id": "tSheVQcieUCGLE8f7WoaE",
   "name": "Claude Code Monitoring",
   "layout": {
     "sections": [
@@ -26,11 +26,11 @@
                     "query": {
                       "metrics": {
                         "promqlQuery": {
-                          "value": "sum(increase(claude_code_session_count_total{}[24h]))"
+                          "value": "sum(claude_code_session_count_total{})"
                         },
-                        "aggregation": "AGGREGATION_LAST",
+                        "aggregation": "AGGREGATION_SUM",
                         "filters": [],
-                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
                         "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
                       }
                     },
@@ -87,7 +87,7 @@
                         },
                         "aggregation": "AGGREGATION_SUM",
                         "filters": [],
-                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
                         "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
                       }
                     },
@@ -142,7 +142,7 @@
                         "promqlQuery": {
                           "value": "sum(claude_code_token_usage_tokens_total{})"
                         },
-                        "aggregation": "AGGREGATION_LAST",
+                        "aggregation": "AGGREGATION_SUM",
                         "filters": [],
                         "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
                         "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
@@ -199,14 +199,14 @@
                         "promqlQuery": {
                           "value": "sum(claude_code_active_time_total_s_total{})"
                         },
-                        "aggregation": "AGGREGATION_LAST",
+                        "aggregation": "AGGREGATION_SUM",
                         "filters": [],
-                        "editorMode": "METRICS_QUERY_EDITOR_MODE_BUILDER",
+                        "editorMode": "METRICS_QUERY_EDITOR_MODE_TEXT",
                         "promqlQueryType": "PROM_QL_QUERY_TYPE_RANGE"
                       }
                     },
                     "min": 0,
-                    "max": 3600,
+                    "max": 150000,
                     "showInnerArc": true,
                     "showOuterArc": true,
                     "unit": "UNIT_NUMBER",
@@ -232,7 +232,11 @@
                       "isVisible": true,
                       "columns": [],
                       "groupByQuery": true,
-                      "placement": "LEGEND_PLACEMENT_AUTO"
+                      "placement": "LEGEND_PLACEMENT_AUTO",
+                      "seriesVisibility": {
+                        "querySeries": [],
+                        "annotationSeries": []
+                      }
                     },
                     "legendBy": "LEGEND_BY_GROUPS",
                     "displaySeriesName": false,
@@ -587,7 +591,7 @@
                       }
                     },
                     "legendBy": "LEGEND_BY_GROUPS",
-                    "displaySeriesName": true,
+                    "displaySeriesName": false,
                     "decimalPrecision": false
                   }
                 }
@@ -1123,7 +1127,7 @@
   "variables": [],
   "variablesV2": [],
   "filters": [],
-  "relativeTimeFrame": "1800s",
+  "relativeTimeFrame": "3600s",
   "annotations": [],
   "off": {},
   "actions": []
