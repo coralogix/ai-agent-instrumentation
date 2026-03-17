@@ -25,6 +25,7 @@ A few key examples:
 | OTel metric | Prometheus name in Coralogix | What it tracks |
 |---|---|---|
 | `openclaw.tokens` | `openclaw_tokens_1_total` | Token usage (`openclaw_token`, `openclaw_model`, `openclaw_provider`, `openclaw_channel`) |
+| `openclaw.cost.usd` | `openclaw_cost_usd_1_total` | Cost in USD (`openclaw_channel`, `openclaw_provider`, `openclaw_model`) |
 | `openclaw.run.duration_ms` | `openclaw_run_duration_ms_{bucket,sum,count,min,max}` | Model run duration |
 | `openclaw.message.processed` | `openclaw_message_processed_1_total` | Messages processed per channel and outcome |
 | `openclaw.queue.depth` | `openclaw_queue_depth_1_{bucket,sum,count,min,max}` | Command queue depth per lane |
