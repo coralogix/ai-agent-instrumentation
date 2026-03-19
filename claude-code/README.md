@@ -219,7 +219,7 @@ Import `coralogix-dashboard.json` for an instant view of all signals.
 
 ## Privacy & sensitive data
 
-Telemetry is opt-in. The following fields may contain sensitive data:
+The following fields may contain sensitive data:
 
 - `tool_parameters` (`claude_code.tool_result`) — always emitted for Bash tool; includes `bash_command`, `full_command`, and `description`. Most likely source of sensitive data — commands may contain secrets, file paths, or internal URLs. No opt-out. MCP/Skill tools only emit this field when `OTEL_LOG_TOOL_DETAILS=1`
 - `prompt` (`claude_code.user_prompt`) — only collected when `OTEL_LOG_USER_PROMPTS=1` (off by default)
@@ -243,8 +243,6 @@ Each metric label combination creates a unique time series in Coralogix. High-ca
 ---
 
 ## References
-
-Official Claude Code documentation:
 
 - [Claude Code overview](https://docs.anthropic.com/en/docs/claude-code/overview) — what Claude Code is and how to get started
 - [Monitoring usage (OpenTelemetry)](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) — full reference for telemetry signals, env vars, and OTLP configuration
