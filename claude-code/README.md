@@ -217,6 +217,31 @@ Import `coralogix-dashboard.json` for an instant view of all signals.
 
 ---
 
+## Privacy & sensitive data
+
+Telemetry is opt-in. The following fields may contain sensitive data:
+
+- `tool_parameters` (`claude_code.tool_result`) — always emitted for Bash tool; includes `bash_command`, `full_command`, and `description`. Most likely source of sensitive data — commands may contain secrets, file paths, or internal URLs. No opt-out. MCP/Skill tools only emit this field when `OTEL_LOG_TOOL_DETAILS=1`
+- `prompt` (`claude_code.user_prompt`) — only collected when `OTEL_LOG_USER_PROMPTS=1` (off by default)
+- `user.email` — present on all events when authenticated via OAuth
+- `user.account_uuid` — present on all events
+- `organization.id` — present on all events
+- `error message` (`claude_code.api_error`) — present on API failures; contents not fully documented and may include fragments of the failed request
+
+To drop a field entirely before it is indexed, use a [Coralogix Parsing Rule](https://coralogix.com/docs/log-parsing-rules/) with the **Remove Field** action.
+
+---
+
+## Metric cardinality
+
+Each metric label combination creates a unique time series in Coralogix. High-cardinality labels can increase costs. The main sources:
+
+- `session_id` — a new value per Claude session; attached to `claude_code_session_count_total` and `claude_code_token_usage_tokens_total`. Disable with `OTEL_METRICS_INCLUDE_SESSION_ID=false`
+- `user_account_uuid` — one value per developer. Disable with `OTEL_METRICS_INCLUDE_ACCOUNT_UUID=false`
+- `model` — low cardinality, changes only when Anthropic releases new models
+
+---
+
 ## References
 
 Official Claude Code documentation:
