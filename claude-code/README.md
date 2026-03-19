@@ -8,7 +8,7 @@ No agents. No wrappers. No code changes to your projects. Claude Code emits OTLP
 
 ## How it works
 
-Claude Code exposes telemetry via the OpenTelemetry SDK when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set. This repo provides:
+Claude Code exposes telemetry via the [OpenTelemetry SDK](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set. This repo provides:
 
 - `activate.sh` — exports all required env vars into your shell in one step
 - `.env` — stores your Coralogix API key and endpoint (git-ignored)
@@ -42,7 +42,7 @@ Log events are routed to the subsystem you configure in `.env`. Query them in **
 | `claude_code.user_prompt` | `session.id`, `user.account_uuid`, `prompt` (opt-in), `model` |
 | `claude_code.api_request` | `model`, token counts, cost, latency |
 | `claude_code.api_error` | `status`, error message |
-| `claude_code.tool_result` | tool name, duration, outcome |
+| `claude_code.tool_result` | tool name, duration, outcome, `tool_parameters` (JSON — Bash: `bash_command`, `full_command`, `description`; MCP/Skill: opt-in via `OTEL_LOG_TOOL_DETAILS=1`) |
 | `claude_code.tool_decision` | tool name, `decision`, `source` |
 
 Every signal carries `session.id`, `user.account_uuid`, `user.email`, `organization.id`, `app.version`, and `terminal.type`.
@@ -57,7 +57,7 @@ There are two deployment paths depending on whether you need org-wide automatic 
 
 ### Option A — Org-wide via Claude Code Managed Settings (recommended for teams)
 
-Claude Code's [server-managed settings](https://code.claude.com/docs/en/server-managed-settings) (Public Beta) lets you push the Coralogix configuration to every developer in your organization automatically. No shell scripts, no `.env` distribution, no per-developer action required.
+Claude Code's [server-managed settings](https://docs.anthropic.com/en/docs/claude-code/managed-settings) (Public Beta) lets you push the Coralogix configuration to every developer in your organization automatically. No shell scripts, no `.env` distribution, no per-developer action required.
 
 **Requirements:** Claude for Teams or Enterprise · Claude Code ≥ 2.1.38
 
@@ -160,7 +160,7 @@ export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.s
 export OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta
 ```
 
-Alternatively, use Claude Code's own settings file at `~/.claude/settings.json`:
+Alternatively, use Claude Code's own [settings file](https://docs.anthropic.com/en/docs/claude-code/settings) at `~/.claude/settings.json`:
 
 ```json
 {
@@ -214,3 +214,15 @@ Import `coralogix-dashboard.json` for an instant view of all signals.
 | `OTEL_RESOURCE_ATTRIBUTES` | — | Add custom dimensions, e.g. `team=platform,env=prod` |
 | `OTEL_METRICS_INCLUDE_SESSION_ID` | `true` | Attaches `session.id` to metric labels — disable to reduce cardinality |
 | `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` | `true` | Attaches `user.account_uuid` to metric labels |
+
+---
+
+## References
+
+Official Claude Code documentation:
+
+- [Claude Code overview](https://docs.anthropic.com/en/docs/claude-code/overview) — what Claude Code is and how to get started
+- [Monitoring usage (OpenTelemetry)](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) — full reference for telemetry signals, env vars, and OTLP configuration
+- [Settings](https://docs.anthropic.com/en/docs/claude-code/settings) — `settings.json` schema and all supported configuration keys
+- [Managed settings](https://docs.anthropic.com/en/docs/claude-code/managed-settings) — org-wide configuration via the Claude.ai admin console (Teams/Enterprise)
+- [Security and privacy](https://docs.anthropic.com/en/docs/claude-code/security) — data handling, permissions, and trust model
