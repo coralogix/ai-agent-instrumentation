@@ -247,5 +247,4 @@ Each metric label combination creates a unique time series in Coralogix. High-ca
 - [Claude Code overview](https://docs.anthropic.com/en/docs/claude-code/overview) — what Claude Code is and how to get started
 - [Monitoring usage (OpenTelemetry)](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) — full reference for telemetry signals, env vars, and OTLP configuration
 - [Settings](https://docs.anthropic.com/en/docs/claude-code/settings) — `settings.json` schema and all supported configuration keys
-- [Managed settings](https://docs.anthropic.com/en/docs/claude-code/managed-settings) — org-wide configuration via the Claude.ai admin console (Teams/Enterprise)
 - [Security and privacy](https://docs.anthropic.com/en/docs/claude-code/security) — data handling, permissions, and trust model
