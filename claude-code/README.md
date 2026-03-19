@@ -8,7 +8,7 @@ No agents. No wrappers. No code changes to your projects. Claude Code emits OTLP
 
 ## How it works
 
-Claude Code exposes telemetry via the OpenTelemetry SDK when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set. This repo provides:
+Claude Code exposes telemetry via the [OpenTelemetry SDK](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) when `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set. This repo provides:
 
 - `activate.sh` — exports all required env vars into your shell in one step
 - `.env` — stores your Coralogix API key and endpoint (git-ignored)
@@ -42,7 +42,7 @@ Log events are routed to the subsystem you configure in `.env`. Query them in **
 | `claude_code.user_prompt` | `session.id`, `user.account_uuid`, `prompt` (opt-in), `model` |
 | `claude_code.api_request` | `model`, token counts, cost, latency |
 | `claude_code.api_error` | `status`, error message |
-| `claude_code.tool_result` | tool name, duration, outcome |
+| `claude_code.tool_result` | tool name, duration, outcome, `tool_parameters` (JSON — Bash: `bash_command`, `full_command`, `description`; MCP/Skill: opt-in via `OTEL_LOG_TOOL_DETAILS=1`) |
 | `claude_code.tool_decision` | tool name, `decision`, `source` |
 
 Every signal carries `session.id`, `user.account_uuid`, `user.email`, `organization.id`, `app.version`, and `terminal.type`.
@@ -57,7 +57,7 @@ There are two deployment paths depending on whether you need org-wide automatic 
 
 ### Option A — Org-wide via Claude Code Managed Settings (recommended for teams)
 
-Claude Code's [server-managed settings](https://code.claude.com/docs/en/server-managed-settings) (Public Beta) lets you push the Coralogix configuration to every developer in your organization automatically. No shell scripts, no `.env` distribution, no per-developer action required.
+Claude Code's [server-managed settings](https://docs.anthropic.com/en/docs/claude-code/managed-settings) (Public Beta) lets you push the Coralogix configuration to every developer in your organization automatically. No shell scripts, no `.env` distribution, no per-developer action required.
 
 **Requirements:** Claude for Teams or Enterprise · Claude Code ≥ 2.1.38
 
@@ -160,7 +160,7 @@ export OTEL_RESOURCE_ATTRIBUTES="cx.application.name=${CX_APPLICATION_NAME},cx.s
 export OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta
 ```
 
-Alternatively, use Claude Code's own settings file at `~/.claude/settings.json`:
+Alternatively, use Claude Code's own [settings file](https://docs.anthropic.com/en/docs/claude-code/settings) at `~/.claude/settings.json`:
 
 ```json
 {
@@ -214,3 +214,37 @@ Import `coralogix-dashboard.json` for an instant view of all signals.
 | `OTEL_RESOURCE_ATTRIBUTES` | — | Add custom dimensions, e.g. `team=platform,env=prod` |
 | `OTEL_METRICS_INCLUDE_SESSION_ID` | `true` | Attaches `session.id` to metric labels — disable to reduce cardinality |
 | `OTEL_METRICS_INCLUDE_ACCOUNT_UUID` | `true` | Attaches `user.account_uuid` to metric labels |
+
+---
+
+## Privacy & sensitive data
+
+The following fields may contain sensitive data:
+
+- `tool_parameters` (`claude_code.tool_result`) — always emitted for Bash tool; includes `bash_command`, `full_command`, and `description`. Most likely source of sensitive data — commands may contain secrets, file paths, or internal URLs. No opt-out. MCP/Skill tools only emit this field when `OTEL_LOG_TOOL_DETAILS=1`
+- `prompt` (`claude_code.user_prompt`) — only collected when `OTEL_LOG_USER_PROMPTS=1` (off by default)
+- `user.email` — present on all events when authenticated via OAuth
+- `user.account_uuid` — present on all events
+- `organization.id` — present on all events
+- `error message` (`claude_code.api_error`) — present on API failures; contents not fully documented and may include fragments of the failed request
+
+To drop a field entirely before it is indexed, use a [Coralogix Parsing Rule](https://coralogix.com/docs/log-parsing-rules/) with the **Remove Field** action.
+
+---
+
+## Metric cardinality
+
+Each metric label combination creates a unique time series in Coralogix. High-cardinality labels can increase costs. The main sources:
+
+- `session_id` — a new value per Claude session; attached to `claude_code_session_count_total` and `claude_code_token_usage_tokens_total`. Disable with `OTEL_METRICS_INCLUDE_SESSION_ID=false`
+- `user_account_uuid` — one value per developer. Disable with `OTEL_METRICS_INCLUDE_ACCOUNT_UUID=false`
+- `model` — low cardinality, changes only when Anthropic releases new models
+
+---
+
+## References
+
+- [Claude Code overview](https://docs.anthropic.com/en/docs/claude-code/overview) — what Claude Code is and how to get started
+- [Monitoring usage (OpenTelemetry)](https://docs.anthropic.com/en/docs/claude-code/monitoring-usage) — full reference for telemetry signals, env vars, and OTLP configuration
+- [Settings](https://docs.anthropic.com/en/docs/claude-code/settings) — `settings.json` schema and all supported configuration keys
+- [Security and privacy](https://docs.anthropic.com/en/docs/claude-code/security) — data handling, permissions, and trust model
