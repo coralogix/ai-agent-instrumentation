@@ -133,7 +133,16 @@ After running a session, check that telemetry arrived in Coralogix:
 2. **Metrics** — Go to **Metrics Explorer** and search for `gemini-cli`. Token usage and API request metrics appear within one export interval (~10 seconds).
 3. **Traces** — Go to **Tracing** and filter by service name `gemini-cli`.
 
-> **Note on prompt privacy:** `activate.sh` sets `GEMINI_TELEMETRY_LOG_PROMPTS=false` to suppress prompt logging. However, when using the `-p` flag (e.g. `gemini -p "your prompt"`), the prompt appears in `process.command_args` resource attributes regardless of this setting — the OTel Node.js SDK captures all process arguments automatically. Use interactive mode (`gemini`, then type your prompt) to keep prompt content out of telemetry.
+> **Note on sensitive data in telemetry:**
+>
+> `activate.sh` sets `GEMINI_TELEMETRY_LOG_PROMPTS=false` to suppress the `prompt` field in `gemini_cli.user_prompt` events. This does **not** suppress all content from telemetry. Be aware of the following:
+>
+> - **`-p` flag:** When using `gemini -p "your prompt"`, the prompt appears in `process.command_args` resource attributes regardless of `LOG_PROMPTS` — the OTel Node.js SDK captures all process arguments automatically. Use interactive mode (`gemini`, then type your prompt) to keep prompt content out of telemetry.
+> - **Tool and skill commands:** The `gemini_cli.tool_call` event includes a `function_args` attribute containing the full arguments passed to each tool — this includes shell commands, file paths, and any content passed to native tools or MCP tools.
+> - **Slash commands:** The `gemini_cli.slash_command` event logs every slash command with its `command` and `subcommand` values.
+> - **Full conversation content:** When `GEMINI_TELEMETRY_LOG_PROMPTS=true`, the `gen_ai.client.inference.operation.details` log event and trace spans include `gen_ai.input.messages` and `gen_ai.output.messages` containing the full conversation history — including tool call responses such as file contents and directory listings read during the session.
+> - **System instructions:** The `gen_ai.system_instructions` attribute in `gen_ai.client.inference.operation.details` contains the full Gemini CLI system prompt, including internal sub-agent descriptions and skill file paths. This is emitted regardless of `LOG_PROMPTS`.
+> - **Machine identity:** Resource attributes `host.name`, `host.id`, and `process.owner` are attached to every event and identify the machine and OS user running Gemini CLI.
 
 ---
 

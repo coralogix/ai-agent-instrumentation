@@ -15,7 +15,7 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 - `.env.example` — stores your Coralogix credentials (git-ignored)
 - `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
-> **Metrics export** is not yet supported by Codex CLI — see [openai/codex#10277](https://github.com/openai/codex/issues/10277).
+Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool.call`, etc.) are available as structured fields on log events via the `exporter` pipeline.
 
 ---
 
@@ -27,10 +27,12 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 |---|---|
 | `codex.conversation_starts` | `session.id`, `model`, `approval_policy`, `sandbox_mode` |
 | `codex.api_request` | `session.id`, `model`, `status`, `success`, `duration_ms` |
-| `codex.sse_event` | `session.id`, `kind`, `success`, `duration_ms` |
+| `codex.sse_event` | `session.id`, `event.kind`, `success`, `duration_ms` (token counts on `response.completed`) |
+| `codex.websocket_request` | `session.id`, `success`, `duration_ms` |
+| `codex.websocket_event` | `session.id`, `event.kind`, `success`, `duration_ms` |
 | `codex.user_prompt` | `session.id`, `length` (content redacted unless `log_user_prompt = true`) |
-| `codex.tool_decision` | `session.id`, `tool`, `approved`, `source` |
-| `codex.tool_result` | `session.id`, `tool`, `success`, `duration_ms` |
+| `codex.tool_decision` | `session.id`, `tool_name`, `decision`, `source` |
+| `codex.tool_result` | `session.id`, `tool_name`, `arguments`, `output`, `success`, `duration_ms` |
 
 ### Traces
 
@@ -133,11 +135,7 @@ See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advance
 
 ## Dashboard
 
-A pre-built dashboard is included at `coralogix-codex-dashboard.json`. To regenerate it after making changes:
-
-```bash
-python3 gen_dashboard.py
-```
+A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
 
 **To import:**
 1. In your Coralogix tenant go to **Dashboards → New Dashboard**
