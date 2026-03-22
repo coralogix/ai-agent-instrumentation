@@ -22,8 +22,24 @@
 [otel]
 environment = "production"
 log_user_prompt = false
-exporter = { otlp-http = { endpoint = "${CX_OTLP_ENDPOINT}/v1/logs", protocol = "binary", headers = { "Authorization" = "Bearer ${CX_API_KEY}", "CX-Application-Name" = "${CX_APPLICATION_NAME}", "CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}" } } }
-trace_exporter = { otlp-http = { endpoint = "${CX_OTLP_ENDPOINT}/v1/traces", protocol = "binary", headers = { "Authorization" = "Bearer ${CX_API_KEY}", "CX-Application-Name" = "${CX_APPLICATION_NAME}", "CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}" } } }
+
+[otel.exporter.otlp-http]
+endpoint = "${CX_OTLP_ENDPOINT}/v1/logs"
+protocol = "binary"
+
+[otel.exporter.otlp-http.headers]
+"Authorization" = "Bearer ${CX_API_KEY}"
+"CX-Application-Name" = "${CX_APPLICATION_NAME}"
+"CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}"
+
+[otel.trace_exporter.otlp-http]
+endpoint = "${CX_OTLP_ENDPOINT}/v1/traces"
+protocol = "binary"
+
+[otel.trace_exporter.otlp-http.headers]
+"Authorization" = "Bearer ${CX_API_KEY}"
+"CX-Application-Name" = "${CX_APPLICATION_NAME}"
+"CX-Subsystem-Name" = "${CX_SUBSYSTEM_NAME}"
 
 # Optional: disable Codex's separate anonymous analytics to OpenAI
 [analytics]

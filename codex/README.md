@@ -127,7 +127,7 @@ Run a session, then type `/exit` to flush telemetry. Logs appear in Coralogix un
 | `log_user_prompt` | `false` | Set to `true` to include prompt text in `codex.user_prompt` log events |
 | `environment` | `"dev"` | Tag all events with an environment name |
 | `exporter` | `"none"` | Set to `otlp-http` or `otlp-grpc` to enable log export |
-| `trace_exporter` | *(unset)* | Same options as `exporter`, enables trace export |
+| `trace_exporter` | `"none"` | Same options as `exporter`, enables trace export via OTLP |
 
 See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advanced/#observability-and-telemetry) for the full reference.
 
