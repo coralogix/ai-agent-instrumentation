@@ -29,7 +29,7 @@ When querying logs in Coralogix, filter on `$d.resource.attributes['service.name
 |---|---|
 | `codex.conversation_starts` | `conversation.id`, `model`, `approval_policy`, `sandbox_mode` |
 | `codex.api_request` | `conversation.id`, `user.email`, `user.account_id`, `model`, `http.response.status_code`, `duration_ms`, `attempt`, `terminal.type` |
-| `codex.sse_event` | `conversation.id`, `event.kind`, `success`, `duration_ms` (token counts on `response.completed`: `input_token_count`, `output_token_count`, `cached_token_count`) |
+| `codex.sse_event` | `conversation.id`, `user.email`, `user.account_id`, `model`, `event.kind`, `event.timestamp` (token counts on `response.completed`: `input_token_count`, `output_token_count`, `cached_token_count`, `reasoning_token_count`, `tool_token_count`) |
 | `codex.websocket_request` | `conversation.id`, `success`, `duration_ms` |
 | `codex.websocket_event` | `conversation.id`, `event.kind`, `success`, `duration_ms` |
 | `codex.user_prompt` | `conversation.id`, `user.email`, `model`, `prompt` (full text), `prompt_length` |
