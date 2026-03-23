@@ -26,7 +26,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| distinct $d.logRecord.attributes['conversation.id'], $d.logRecord.attributes['user.email']\n| countby $d.logRecord.attributes['user.email'] as user into session_count desc"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| distinct $d.logRecord.attributes['conversation.id'], $d.logRecord.attributes['user.email']\n| countby $d.logRecord.attributes['user.email'] as user into session_count desc"
                         },
                         "filters": []
                       }
@@ -55,7 +55,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.api_request'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| groupby conversation_id, user aggregate count() as turns\n| sort by turns desc"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.api_request'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| groupby conversation_id, user aggregate count() as turns\n| sort by turns desc"
                         },
                         "filters": []
                       }
@@ -107,7 +107,7 @@
                         "query": {
                           "dataprime": {
                             "dataprimeQuery": {
-                              "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| create user from $d.logRecord.attributes['user.email']\n| distinct $m.timestamp / 1h as hour, user\n| countby hour into active_users asc"
+                              "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| create user from $d.logRecord.attributes['user.email']\n| distinct $m.timestamp / 1h as hour, user\n| countby hour into active_users asc"
                             },
                             "filters": []
                           }
@@ -165,7 +165,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby conversation_id, user aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create conversation_id from $d.logRecord.attributes['conversation.id']\n| create user from $d.logRecord.attributes['user.email']\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby conversation_id, user aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
                         },
                         "filters": []
                       }
@@ -218,7 +218,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create model from $d.logRecord.attributes.model\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby model aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create model from $d.logRecord.attributes.model\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create cached from $d.logRecord.attributes.cached_token_count:number\n| groupby model aggregate sum(input) as total_input, sum(output) as total_output, sum(cached) as total_cached\n| sort by total_input desc"
                         },
                         "filters": []
                       }
@@ -253,7 +253,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create day_raw from ($m.timestamp / 1d):string\n| create day from day_raw.substr(0, 10)\n| groupby day aggregate sum(input) as daily_input, sum(output) as daily_output"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create input from $d.logRecord.attributes.input_token_count:number\n| create output from $d.logRecord.attributes.output_token_count:number\n| create day_raw from ($m.timestamp / 1d):string\n| create day from day_raw.substr(0, 10)\n| groupby day aggregate sum(input) as daily_input, sum(output) as daily_output"
                         },
                         "filters": [],
                         "groupNames": [
@@ -496,7 +496,7 @@
                     "query": {
                       "dataprime": {
                         "dataprimeQuery": {
-                          "text": "source logs\n| filter $d.logRecord.attributes.originator == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create ts from $d.logRecord.attributes['event.timestamp']\n| create user from $d.logRecord.attributes['user.email']\n| create model from $d.logRecord.attributes.model\n| create session from $d.logRecord.attributes['conversation.id']\n| create tokens_in from $d.logRecord.attributes.input_token_count:number\n| create tokens_out from $d.logRecord.attributes.output_token_count:number\n| create app from $l.applicationname\n| create service from $d.resource.attributes['service.name']\n| choose ts, user, model, session, tokens_in, tokens_out, app, service\n| sort by ts desc"
+                          "text": "source logs\n| filter $d.resource.attributes['service.name'] == 'codex_cli_rs'\n| filter $d.logRecord.attributes['event.name'] == 'codex.sse_event'\n| filter $d.logRecord.attributes['event.kind'] == 'response.completed'\n| create ts from $d.logRecord.attributes['event.timestamp']\n| create user from $d.logRecord.attributes['user.email']\n| create model from $d.logRecord.attributes.model\n| create session from $d.logRecord.attributes['conversation.id']\n| create tokens_in from $d.logRecord.attributes.input_token_count:number\n| create tokens_out from $d.logRecord.attributes.output_token_count:number\n| create app from $l.applicationname\n| create service from $d.resource.attributes['service.name']\n| choose ts, user, model, session, tokens_in, tokens_out, app, service\n| sort by ts desc"
                         },
                         "filters": []
                       }

@@ -15,7 +15,16 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 - `.env.example` — stores your Coralogix credentials (git-ignored)
 - `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
-Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool.call`, etc.) are available as structured fields on log events via the `exporter` pipeline.
+Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool_decision`, etc.) are available as structured fields on log events via the `exporter` pipeline.
+
+Both pipelines emit the same event types but differ in how they reach Coralogix:
+
+| Pipeline | Config key | Storage in Coralogix | `originator` (v0.111) | `originator` (v0.115+) |
+|---|---|---|---|---|
+| Log exporter | `exporter` | Logs store (`source logs`) | `codex_cli_rs` | `codex-tui` |
+| Trace exporter | `trace_exporter` | Traces store (`source spans`, as span-embedded logs) | `codex_cli_rs` | `codex_cli_rs` |
+
+When querying logs in Coralogix, filter on `$d.resource.attributes['service.name'] == 'codex_cli_rs'` — this is stable across all client versions. Standalone log records also carry `spanId` and `traceId` for correlation back to traces.
 
 ---
 
@@ -25,18 +34,23 @@ Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporte
 
 | Event | Key attributes |
 |---|---|
-| `codex.conversation_starts` | `session.id`, `model`, `approval_policy`, `sandbox_mode` |
-| `codex.api_request` | `session.id`, `model`, `status`, `success`, `duration_ms` |
-| `codex.sse_event` | `session.id`, `event.kind`, `success`, `duration_ms` (token counts on `response.completed`) |
-| `codex.websocket_request` | `session.id`, `success`, `duration_ms` |
-| `codex.websocket_event` | `session.id`, `event.kind`, `success`, `duration_ms` |
-| `codex.user_prompt` | `session.id`, `length` (content redacted unless `log_user_prompt = true`) |
-| `codex.tool_decision` | `session.id`, `tool_name`, `decision`, `source` |
-| `codex.tool_result` | `session.id`, `tool_name`, `arguments`, `output`, `success`, `duration_ms` |
+| `codex.conversation_starts` | `conversation.id`, `model`, `approval_policy`, `sandbox_mode` |
+| `codex.api_request` | `conversation.id`, `user.email`, `user.account_id`, `model`, `http.response.status_code`, `duration_ms`, `attempt`, `terminal.type` |
+| `codex.sse_event` | `conversation.id`, `event.kind`, `success`, `duration_ms` (token counts on `response.completed`: `input_token_count`, `output_token_count`, `cached_token_count`) |
+| `codex.websocket_request` | `conversation.id`, `success`, `duration_ms` |
+| `codex.websocket_event` | `conversation.id`, `event.kind`, `success`, `duration_ms` |
+| `codex.user_prompt` | `conversation.id`, `user.email`, `model`, `prompt` (full text), `prompt_length` |
+| `codex.tool_decision` | `conversation.id`, `user.email`, `model`, `tool_name`, `decision` (`approved`/`rejected`), `source` (`Config` for auto-approved rules, `User` for manual) |
+| `codex.tool_result` | `conversation.id`, `user.email`, `model`, `tool_name`, `arguments`, `output`, `success`, `duration_ms`, `mcp_server`, `call_id` |
 
 ### Traces
 
 Codex emits a trace per session when `trace_exporter` is configured. Spans cover the full turn lifecycle including API calls and tool executions.
+
+| Span | Key attributes |
+|---|---|
+| `session_loop` (root) | `busy_ns`, `idle_ns`, `duration` — total session time split between agent processing and idle (developer) time |
+| `stream_request` (child) | `busy_ns`, `idle_ns`, `duration` — per-API-call breakdown; contains embedded `codex.api_request` log with `user.email` and response headers including quota data (`x-codex-plan-type`, `x-codex-primary-used-percent`) |
 
 ---
 
@@ -124,7 +138,7 @@ Run a session, then type `/exit` to flush telemetry. Logs appear in Coralogix un
 
 | Option | Default | Purpose |
 |---|---|---|
-| `log_user_prompt` | `false` | Set to `true` to include prompt text in `codex.user_prompt` log events |
+| `log_user_prompt` | `false` | Controls prompt text inclusion in standalone log records (`source logs`). Prompt text is always present in trace-embedded events (`source spans`) regardless of this setting — consider the privacy implications before enabling `trace_exporter` in sensitive environments. |
 | `environment` | `"dev"` | Tag all events with an environment name |
 | `exporter` | `"none"` | Set to `otlp-http` or `otlp-grpc` to enable log export |
 | `trace_exporter` | `"none"` | Same options as `exporter`, enables trace export via OTLP |
@@ -150,4 +164,4 @@ A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
 | **Tokens** | Total tokens per session · token breakdown by model · daily token usage |
 | **Traces** | Slowest spans · span count by operation · avg + max duration per operation |
 
-All panels use DataPrime queries filtered by `originator = codex_cli_rs`, so they work regardless of which application/subsystem the logs are routed to.
+Log panels filter by `$d.resource.attributes['service.name'] == 'codex_cli_rs'`, which is stable across all client versions and works regardless of which application/subsystem the logs are routed to. Trace panels filter by `$d.serviceName == 'codex_cli_rs'`.
