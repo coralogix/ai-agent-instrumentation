@@ -17,13 +17,6 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 
 Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool_decision`, etc.) are available as structured fields on log events via the `exporter` pipeline.
 
-Both pipelines emit the same event types but differ in how they reach Coralogix:
-
-| Pipeline | Config key | Storage in Coralogix | `originator` (v0.111) | `originator` (v0.115+) |
-|---|---|---|---|---|
-| Log exporter | `exporter` | Logs store (`source logs`) | `codex_cli_rs` | `codex-tui` |
-| Trace exporter | `trace_exporter` | Traces store (`source spans`, as span-embedded logs) | `codex_cli_rs` | `codex_cli_rs` |
-
 When querying logs in Coralogix, filter on `$d.resource.attributes['service.name'] == 'codex_cli_rs'` — this is stable across all client versions. Standalone log records also carry `spanId` and `traceId` for correlation back to traces.
 
 ---
