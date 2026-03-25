@@ -18,9 +18,9 @@ Your app  →  xai-sdk  →  api.x.ai
 
 ## Prerequisites
 
-**xAI API key** — from [platform.x.ai](https://platform.x.ai/).
+**xAI API key** - from [platform.x.ai](https://platform.x.ai/).
 
-**Coralogix Send-Your-Data API key** — from **Settings → API Keys**.
+**Coralogix Send-Your-Data API key** - from **Settings - API Keys**.
 
 **OTLP ingress endpoint** for your region:
 
