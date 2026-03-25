@@ -1,0 +1,3 @@
+xai-sdk[telemetry-http]
+opentelemetry-sdk
+opentelemetry-exporter-otlp
