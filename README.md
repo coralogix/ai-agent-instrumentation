@@ -12,7 +12,9 @@ This repository provides ready-to-use instrumentation setups that forward teleme
 |-------|-------------|
 | [Claude Code](./claude-code/) | Forward token usage, costs, code changes, and prompt logs to Coralogix via OTLP |
 | [Codex CLI](./codex/) | Forward API requests, tool calls, SSE events, and session activity to Coralogix via OTLP |
+| [Cursor](./cursor/) | Forward agent hooks (prompts, tools, shell, MCP, session lifecycle) to Coralogix as OTLP traces |
 | [Gemini CLI](./gemini-cli/) | Forward token usage, tool calls, API requests, model routing, agent runs, and prompt logs to Coralogix via OTLP |
+| [Grok (xAI)](./grok/) | Forward Grok API token usage, model names, finish reasons, and prompt/response content to Coralogix via OTLP |
 | [OpenClaw](./openclaw/) | Forward gateway sessions, token usage, costs, model runs, message flow, and webhook activity to Coralogix via OTLP |
 
 

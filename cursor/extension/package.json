@@ -1,0 +1,95 @@
+{
+  "name": "cursor-coralogix",
+  "displayName": "Cursor Coralogix Telemetry",
+  "description": "Ship Cursor agent sessions — prompts, tool calls, shell executions, and MCP calls — to Coralogix as OTLP traces.",
+  "version": "1.0.0",
+  "publisher": "coralogix",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "icon": "resources/icon.png",
+  "categories": ["Other"],
+  "keywords": ["cursor", "coralogix", "opentelemetry", "tracing", "observability"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cursorCoralogix.setup",
+        "title": "Coralogix: Setup hooks"
+      },
+      {
+        "command": "cursorCoralogix.uninstall",
+        "title": "Coralogix: Remove hooks"
+      },
+      {
+        "command": "cursorCoralogix.status",
+        "title": "Coralogix: Show status"
+      }
+    ],
+    "configuration": {
+      "title": "Coralogix Telemetry",
+      "properties": {
+        "cursorCoralogix.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Coralogix Send-Your-Data API key (Settings → API Keys in your tenant).",
+          "secret": true
+        },
+        "cursorCoralogix.otlpEndpoint": {
+          "type": "string",
+          "default": "https://ingress.eu2.coralogix.com",
+          "description": "Coralogix OTLP ingress endpoint for your region.",
+          "enum": [
+            "https://ingress.us1.coralogix.com",
+            "https://ingress.us2.coralogix.com",
+            "https://ingress.eu1.coralogix.com",
+            "https://ingress.eu2.coralogix.com",
+            "https://ingress.ap1.coralogix.com",
+            "https://ingress.ap2.coralogix.com",
+            "https://ingress.ap3.coralogix.com"
+          ]
+        },
+        "cursorCoralogix.applicationName": {
+          "type": "string",
+          "default": "cursor",
+          "description": "Coralogix application name tag (CX-Application-Name header)."
+        },
+        "cursorCoralogix.subsystemName": {
+          "type": "string",
+          "default": "ai-agent",
+          "description": "Coralogix subsystem name tag (CX-Subsystem-Name header)."
+        },
+        "cursorCoralogix.maskPrompts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Replace all prompt and response text with [MASKED] before sending to Coralogix."
+        },
+        "cursorCoralogix.omitPreToolUseSpans": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip exporting preToolUse spans. postToolUse spans are still exported."
+        },
+        "cursorCoralogix.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Print trace/span IDs to stderr after each export. Visible in Cursor's Output → Hooks panel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "webpack --mode development",
+    "package": "webpack --mode production",
+    "watch": "webpack --mode development --watch",
+    "vscode:prepublish": "npm run package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
