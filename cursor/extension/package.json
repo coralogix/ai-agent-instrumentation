@@ -19,6 +19,10 @@
         "title": "Coralogix: Setup hooks"
       },
       {
+        "command": "cursorCoralogix.setApiKey",
+        "title": "Coralogix: Set API key"
+      },
+      {
         "command": "cursorCoralogix.uninstall",
         "title": "Coralogix: Remove hooks"
       },
@@ -30,12 +34,6 @@
     "configuration": {
       "title": "Coralogix Telemetry",
       "properties": {
-        "cursorCoralogix.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Coralogix Send-Your-Data API key (Settings → API Keys in your tenant).",
-          "secret": true
-        },
         "cursorCoralogix.otlpEndpoint": {
           "type": "string",
           "default": "https://ingress.eu2.coralogix.com",

@@ -43,9 +43,9 @@ function isInstalled(): boolean {
   return fs.existsSync(INSTALLED_PY) && fs.existsSync(WRAPPER_SH);
 }
 
-function buildEnvContent(cfg: vscode.WorkspaceConfiguration): string {
+function buildEnvContent(apiKey: string, cfg: vscode.WorkspaceConfiguration): string {
   const lines = [
-    `CX_API_KEY=${cfg.get<string>('apiKey', '')}`,
+    `CX_API_KEY=${apiKey}`,
     `CX_OTLP_ENDPOINT=${cfg.get<string>('otlpEndpoint', 'https://ingress.eu2.coralogix.com')}`,
     `CX_APPLICATION_NAME=${cfg.get<string>('applicationName', 'cursor')}`,
     `CX_SUBSYSTEM_NAME=${cfg.get<string>('subsystemName', 'ai-agent')}`,
@@ -161,16 +161,31 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(statusBar, output);
 
+  const SECRET_KEY = 'cursorCoralogix.apiKey';
+
   // --- Setup command ---
   context.subscriptions.push(
     vscode.commands.registerCommand('cursorCoralogix.setup', async () => {
       const cfg = vscode.workspace.getConfiguration('cursorCoralogix');
-      const apiKey   = cfg.get<string>('apiKey', '');
       const endpoint = cfg.get<string>('otlpEndpoint', '');
 
-      if (!apiKey || !endpoint) {
+      // Retrieve stored key or prompt the user (masked input)
+      let apiKey = await context.secrets.get(SECRET_KEY) ?? '';
+      if (!apiKey) {
+        const input = await vscode.window.showInputBox({
+          title: 'Coralogix API Key',
+          prompt: 'Paste your Send-Your-Data API key (Settings → API Keys in your tenant)',
+          password: true,
+          ignoreFocusOut: true,
+        });
+        if (!input) return;
+        await context.secrets.store(SECRET_KEY, input);
+        apiKey = input;
+      }
+
+      if (!endpoint) {
         const action = await vscode.window.showErrorMessage(
-          'Set cursorCoralogix.apiKey and cursorCoralogix.otlpEndpoint in Settings before running setup.',
+          'Set cursorCoralogix.otlpEndpoint in Settings before running setup.',
           'Open Settings'
         );
         if (action === 'Open Settings') {
@@ -187,7 +202,7 @@ export function activate(context: vscode.ExtensionContext): void {
         fs.mkdirSync(HOOKS_DIR, { recursive: true });
 
         // 2. Write env file (chmod 600 — credentials)
-        fs.writeFileSync(INSTALLED_ENV, buildEnvContent(cfg), { mode: 0o600 });
+        fs.writeFileSync(INSTALLED_ENV, buildEnvContent(apiKey, cfg), { mode: 0o600 });
         output.appendLine(`Env written:       ${INSTALLED_ENV}`);
 
         // 3. Copy hook.py from extension resources
@@ -232,6 +247,21 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // --- Set API Key command ---
+  context.subscriptions.push(
+    vscode.commands.registerCommand('cursorCoralogix.setApiKey', async () => {
+      const input = await vscode.window.showInputBox({
+        title: 'Coralogix API Key',
+        prompt: 'Paste your Send-Your-Data API key (Settings → API Keys in your tenant)',
+        password: true,
+        ignoreFocusOut: true,
+      });
+      if (!input) return;
+      await context.secrets.store(SECRET_KEY, input);
+      vscode.window.showInformationMessage('Coralogix API key saved. Run setup to apply.');
+    })
+  );
+
   // --- Uninstall command ---
   context.subscriptions.push(
     vscode.commands.registerCommand('cursorCoralogix.uninstall', async () => {
@@ -247,6 +277,7 @@ export function activate(context: vscode.ExtensionContext): void {
         for (const f of [INSTALLED_PY, INSTALLED_ENV, WRAPPER_SH]) {
           try { fs.unlinkSync(f); } catch { /* already gone */ }
         }
+        await context.secrets.delete(SECRET_KEY);
         updateStatusBar(statusBar);
         vscode.window.showInformationMessage(
           'Coralogix hooks removed. Restart Cursor to deactivate.'
