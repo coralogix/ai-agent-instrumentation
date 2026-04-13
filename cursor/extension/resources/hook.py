@@ -159,6 +159,11 @@ def update_state(event, state):
     elif name == "afterMCPExecution":
         key = event.get("tool_name") or "{}:{}".format(event.get("mcp_server", ""), event.get("mcp_tool", ""))
         state.get("mcp_starts", {}).pop(key, None)
+    elif name == "beforeSubmitPrompt":
+        state["prompt_start_ns"] = now
+    elif name == "afterAgentResponse":
+        state.pop("prompt_start_ns", None)
+
 
 
 # ---------------------------------------------------------------------------
@@ -177,6 +182,12 @@ def _raw_str(v):
 
 def _elapsed_ms(start_ns):
     return (time.time_ns() - start_ns) // 1_000_000
+
+
+def _count_lines(text):
+    if not text:
+        return 0
+    return text.count("\n") + 1
 
 
 def build_attributes(event, state):
@@ -206,14 +217,18 @@ def build_attributes(event, state):
         prompt = event.get("prompt", "")
         if prompt:
             add("cursor.prompt", "[MASKED]" if MASK_PROMPTS else _truncate(prompt, 4000))
+            add_int("cursor.prompt_length", len(prompt))
 
     elif name in ("afterAgentResponse", "afterAgentThought"):
         add("gen_ai.operation.name", "chat")
         text = event.get("text", "")
         if text:
             add("cursor.text", "[MASKED]" if MASK_PROMPTS else _truncate(text, 4000))
+            add_int("cursor.response_lines", _count_lines(text))
         if event.get("duration_ms") is not None:
             add_int("cursor.duration_ms", event["duration_ms"])
+        if name == "afterAgentResponse" and state and state.get("prompt_start_ns"):
+            add_int("cursor.thinking_ms", _elapsed_ms(state["prompt_start_ns"]))
 
     elif name == "preToolUse":
         add("gen_ai.operation.name", "tool_call")
@@ -306,6 +321,11 @@ def build_attributes(event, state):
         edits = event.get("edits") or []
         if edits:
             add_int("cursor.edit_count", len(edits))
+            lines_added   = sum(_count_lines(e.get("new_string", "")) for e in edits)
+            lines_deleted = sum(_count_lines(e.get("old_string", "")) for e in edits)
+            add_int("cursor.lines_added",   lines_added)
+            add_int("cursor.lines_deleted", lines_deleted)
+            add_int("cursor.lines_net",     lines_added - lines_deleted)
 
     elif name == "subagentStart":
         add("gen_ai.operation.name",         "subagent_start")
@@ -483,6 +503,14 @@ def main():
     except json.JSONDecodeError:
         print("{}")
         return
+
+    if DEBUG:
+        print(
+            "cursor-coralogix-hook: RAW EVENT\n{}".format(
+                json.dumps(event, indent=2, default=str)
+            ),
+            file=sys.stderr,
+        )
 
     conv_id         = conversation_id(event)
     hook_name       = event.get("hook_event_name", "")
