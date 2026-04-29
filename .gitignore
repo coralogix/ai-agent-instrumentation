@@ -1,0 +1,13 @@
+# Credentials
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+*.vsix
