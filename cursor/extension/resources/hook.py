@@ -137,6 +137,10 @@ def session_id(event):
     return (event.get("session_id") or "").strip()
 
 
+def project_dir():
+    return os.environ.get("CURSOR_PROJECT_DIR", "").strip()
+
+
 # ---------------------------------------------------------------------------
 # State update (tracks per-operation start times for elapsed-ms fallback)
 # ---------------------------------------------------------------------------
@@ -207,6 +211,10 @@ def build_attributes(event, state):
     add("cursor.generation_id",   event.get("generation_id"))
     add("cursor.user_email",      event.get("user_email"))
     add("cursor.cursor_version",  event.get("cursor_version"))
+    proj_dir = project_dir()
+    add("cursor.project_dir",     proj_dir)
+    if proj_dir:
+        add("gen_ai.repo",        Path(proj_dir).name)
 
     # GenAI semantic conventions
     add("gen_ai.system",        "cursor")

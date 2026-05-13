@@ -152,7 +152,7 @@ Each Cursor hook event becomes one OTLP trace span.
 | `subagentStart` / `subagentStop` | `cursor.subagentStart/Stop` | session and generation IDs |
 | `afterAgentResponse` / `afterAgentThought` | `cursor.afterAgentResponse/Thought` | `cursor.text` |
 
-All spans carry: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `cursor.user_email`, plus Coralogix tags: `cx.application.name`, `cx.subsystem.name`.
+All spans carry: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `gen_ai.repo`, `cursor.user_email`, `cursor.project_dir`, plus Coralogix tags: `cx.application.name`, `cx.subsystem.name`.
 
 ---
 
