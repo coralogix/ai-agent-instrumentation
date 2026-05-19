@@ -308,7 +308,7 @@ CX_API_KEY=xxx ./install.sh           # non-interactive
 - **Acceptance:** `./install.sh` → script copied, hook registered, state dir created. Run again → idempotent. `cat ~/.claude/settings.json` shows PostToolUse hook. Dry-run test passes.
 - **Dependencies:** 1.1
 
-### 1.3 [ ] Documentation
+### 1.3 [x] Documentation *(completed 2026-05-19)*
 - **Files:** `claude-code/hooks/README.md`
 - **What:** Document:
   1. What the hook does and why (repo-level cost attribution for the AI Center dashboard)
