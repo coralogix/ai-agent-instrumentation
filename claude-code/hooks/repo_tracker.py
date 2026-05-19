@@ -172,58 +172,114 @@ def maybe_prune_state() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Minimal protobuf encoder (no external dependencies)
+#
+# Protobuf wire format: each field is (field_number << 3 | wire_type) as varint,
+# followed by the value. We only need wire types 0 (varint), 1 (fixed64), and
+# 2 (length-delimited).
+# ---------------------------------------------------------------------------
+
+import struct
+
+
+def _varint(value: int) -> bytes:
+    """Encode an unsigned integer as a protobuf varint."""
+    parts = []
+    while value > 0x7F:
+        parts.append((value & 0x7F) | 0x80)
+        value >>= 7
+    parts.append(value & 0x7F)
+    return bytes(parts)
+
+
+def _field_bytes(field_number: int, data: bytes) -> bytes:
+    """Encode a length-delimited protobuf field (wire type 2)."""
+    tag = _varint((field_number << 3) | 2)
+    return tag + _varint(len(data)) + data
+
+
+def _field_varint(field_number: int, value: int) -> bytes:
+    """Encode a varint protobuf field (wire type 0)."""
+    tag = _varint((field_number << 3) | 0)
+    return tag + _varint(value)
+
+
+def _field_fixed64(field_number: int, value: int) -> bytes:
+    """Encode a fixed64 protobuf field (wire type 1)."""
+    tag = _varint((field_number << 3) | 1)
+    return tag + struct.pack("<Q", value)
+
+
+def _encode_string(field_number: int, value: str) -> bytes:
+    """Encode a string protobuf field."""
+    return _field_bytes(field_number, value.encode("utf-8"))
+
+
+def _encode_kv(key: str, string_value: str) -> bytes:
+    """Encode an opentelemetry.proto.common.v1.KeyValue."""
+    # KeyValue: field 1 = key (string), field 2 = AnyValue
+    # AnyValue: field 1 = string_value
+    any_value = _encode_string(1, string_value)
+    return _encode_string(1, key) + _field_bytes(2, any_value)
+
+
+def build_otlp_protobuf(
+    session_id: str, repo_name: str, user_email: str,
+) -> bytes:
+    """Build an ExportMetricsServiceRequest protobuf for a single gauge data point."""
+    now_ns = int(time.time() * 1_000_000_000)
+
+    # --- NumberDataPoint (field 7 = attributes, field 3 = time_unix_nano, field 6 = as_int) ---
+    dp = b""
+    for key, val in [("session_id", session_id), ("repository_name", repo_name), ("user_email", user_email)]:
+        dp += _field_bytes(7, _encode_kv(key, val))    # attributes
+    dp += _field_fixed64(3, now_ns)                     # time_unix_nano
+    dp += _field_fixed64(6, 1)                          # as_int = 1
+
+    # --- Gauge (field 1 = data_points) ---
+    gauge = _field_bytes(1, dp)
+
+    # --- Metric (field 1 = name, field 5 = gauge) ---
+    metric = _encode_string(1, "claude_code_session_repo_info")
+    metric += _field_bytes(5, gauge)
+
+    # --- InstrumentationScope (field 1 = name, field 2 = version) ---
+    scope = _encode_string(1, "repo-tracker") + _encode_string(2, "1.0.0")
+
+    # --- ScopeMetrics (field 1 = scope, field 2 = metrics) ---
+    scope_metrics = _field_bytes(1, scope) + _field_bytes(2, metric)
+
+    # --- Resource (field 1 = attributes) ---
+    resource = b""
+    for key, val in [("service.name", "claude-code-hook"),
+                     ("cx.application.name", APPLICATION_NAME),
+                     ("cx.subsystem.name", SUBSYSTEM_NAME)]:
+        resource += _field_bytes(1, _encode_kv(key, val))
+
+    # --- ResourceMetrics (field 1 = resource, field 2 = scope_metrics) ---
+    resource_metrics = _field_bytes(1, resource) + _field_bytes(2, scope_metrics)
+
+    # --- ExportMetricsServiceRequest (field 1 = resource_metrics) ---
+    return _field_bytes(1, resource_metrics)
+
+
+# ---------------------------------------------------------------------------
 # OTLP metric emission
 # ---------------------------------------------------------------------------
 
-def build_otlp_payload(
-    session_id: str, repo_name: str, user_email: str,
-) -> dict:
-    """Build the OTLP JSON payload for a gauge metric data point."""
-    now_ns = str(int(time.time() * 1_000_000_000))
-    return {
-        "resourceMetrics": [{
-            "resource": {
-                "attributes": [
-                    {"key": "service.name", "value": {"stringValue": "claude-code-hook"}},
-                    {"key": "cx.application.name", "value": {"stringValue": APPLICATION_NAME}},
-                    {"key": "cx.subsystem.name", "value": {"stringValue": SUBSYSTEM_NAME}},
-                ],
-            },
-            "scopeMetrics": [{
-                "scope": {"name": "repo-tracker", "version": "1.0.0"},
-                "metrics": [{
-                    "name": "claude_code_session_repo_info",
-                    "gauge": {
-                        "dataPoints": [{
-                            "asInt": "1",
-                            "timeUnixNano": now_ns,
-                            "attributes": [
-                                {"key": "session_id", "value": {"stringValue": session_id}},
-                                {"key": "repository_name", "value": {"stringValue": repo_name}},
-                                {"key": "user_email", "value": {"stringValue": user_email}},
-                            ],
-                        }],
-                    },
-                }],
-            }],
-        }],
-    }
-
-
 def emit_metric(session_id: str, repo_name: str, user_email: str) -> None:
-    """POST the OTLP JSON gauge metric to the Coralogix endpoint."""
-    payload = build_otlp_payload(session_id, repo_name, user_email)
-    data = json.dumps(payload).encode("utf-8")
+    """POST the OTLP protobuf gauge metric to the Coralogix endpoint."""
+    data = build_otlp_protobuf(session_id, repo_name, user_email)
     url = f"{OTLP_ENDPOINT.rstrip('/')}/v1/metrics"
 
-    debug(f"POST {url}")
-    debug(f"Payload: {json.dumps(payload, indent=2)}")
+    debug(f"POST {url} ({len(data)} bytes protobuf)")
+    debug(f"  session_id={session_id} repository_name={repo_name} user_email={user_email}")
 
     req = Request(
         url,
         data=data,
         headers={
-            "Content-Type": "application/json",
+            "Content-Type": "application/x-protobuf",
             "Authorization": f"Bearer {API_KEY}",
         },
         method="POST",
