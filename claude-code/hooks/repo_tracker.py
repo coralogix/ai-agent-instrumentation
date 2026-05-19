@@ -31,10 +31,29 @@ from urllib.error import URLError
 # Configuration (env vars)
 # ---------------------------------------------------------------------------
 
-API_KEY = os.environ.get("CX_HOOK_API_KEY", "")
-OTLP_ENDPOINT = os.environ.get(
-    "CX_HOOK_OTLP_ENDPOINT", "https://ingress.eu2.coralogix.com"
-)
+def _resolve_api_key() -> str:
+    """Resolve API key: CX_HOOK_API_KEY > OTEL_EXPORTER_OTLP_HEADERS > empty."""
+    key = os.environ.get("CX_HOOK_API_KEY", "")
+    if key:
+        return key
+    # Fallback: extract Bearer token from native OTLP headers so the hook
+    # automatically lands on the same Coralogix team as native Claude Code metrics.
+    headers = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
+    if "Bearer " in headers:
+        return headers.split("Bearer ", 1)[1].strip()
+    return ""
+
+
+def _resolve_endpoint() -> str:
+    """Resolve endpoint: CX_HOOK_OTLP_ENDPOINT > OTEL_EXPORTER_OTLP_ENDPOINT > default."""
+    endpoint = os.environ.get("CX_HOOK_OTLP_ENDPOINT", "")
+    if endpoint:
+        return endpoint
+    return os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "https://ingress.eu2.coralogix.com")
+
+
+API_KEY = _resolve_api_key()
+OTLP_ENDPOINT = _resolve_endpoint()
 APPLICATION_NAME = os.environ.get("CX_HOOK_APPLICATION_NAME", "claude-code")
 SUBSYSTEM_NAME = os.environ.get("CX_HOOK_SUBSYSTEM_NAME", "ai-agent")
 DEBUG = os.environ.get("CX_HOOK_DEBUG", "") == "1"
