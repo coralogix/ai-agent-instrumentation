@@ -275,7 +275,7 @@ CX_API_KEY=xxx ./install.sh           # non-interactive
   7. With unreachable endpoint → exits 0 (urllib timeout caught)
 - **Dependencies:** None
 
-### 1.2 [ ] Installer script and managed settings snippet
+### 1.2 [x] Installer script and managed settings snippet *(completed 2026-05-19)*
 - **Files:** `claude-code/hooks/install.sh`, `claude-code/hooks/.env.example`
 - **What:** Create:
 
