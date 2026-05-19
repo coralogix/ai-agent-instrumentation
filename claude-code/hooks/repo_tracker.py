@@ -315,22 +315,23 @@ def main() -> None:
 
     repos = resolve_repos(paths)
     if not repos:
-        debug("No git repos found, exiting")
-        return
+        debug("No git repos found, using 'unknown'")
+        repos = {"unknown"}
 
-    # Deduplicate against session state
+    # Load known repos for this session and merge with newly detected ones
     emitted = load_emitted_repos(session_id)
     new_repos = repos - emitted
-    if not new_repos:
-        debug(f"All repos already emitted for session {session_id}: {repos}")
-        return
+    all_repos = emitted | repos
 
-    # Emit metric for each new repo
+    # Always re-emit for ALL known repos (keeps the gauge alive in Prometheus —
+    # a gauge emitted once via OTLP push becomes stale after ~5 min).
     user_email = event.get("user_email", "")
-    for repo in sorted(new_repos):
-        debug(f"New repo detected: {repo} (session={session_id})")
+    for repo in sorted(all_repos):
+        is_new = repo in new_repos
+        debug(f"{'New repo' if is_new else 'Re-emit'}: {repo} (session={session_id})")
         emit_metric(session_id, repo, user_email)
-        save_repo(session_id, repo)
+        if is_new:
+            save_repo(session_id, repo)
 
     # Occasional state cleanup
     maybe_prune_state()
