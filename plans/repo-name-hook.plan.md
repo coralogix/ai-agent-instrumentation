@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| Status | in-progress |
+| Status | complete |
 | Created | 2026-05-19 |
 | Ticket | AIC-566 |
 | Branch | feat/repo-name-hook |
@@ -393,7 +393,7 @@ for (const result of response.data.result) {
 | Cost | `$X.XX` | costBySession |
 | Tokens | Abbreviated (e.g. `1.2M`) | tokensBySession |
 
-### 2.1 [ ] Add per-session PromQL queries
+### 2.1 [x] Add per-session PromQL queries *(completed 2026-05-19)*
 - **Files:** `libs/ai-center/code-agents/src/lib/promql-queries.ts` (in cx-web-workspace)
 - **What:** Add three new query builders to `codeAgentsPromQLQueries`:
   1. `costBySession(filters)` — `sum by (session_id) (increase(claude_code_cost_usage_USD_total{user_email="...", ...}[<range>s]))`. Requires `user` in filters.
@@ -404,7 +404,7 @@ for (const result of response.data.result) {
 - **Acceptance:** `costBySession({user: 'dev@co.com'})` returns `sum by (session_id) (increase(claude_code_cost_usage_USD_total{user_email="dev@co.com"}[86400s]))`. All three return valid PromQL strings.
 - **Dependencies:** None (pure query builders)
 
-### 2.2 [ ] Session breakdown service and types
+### 2.2 [x] Session breakdown service and types *(completed 2026-05-19)*
 - **Files:** New: `libs/ai-center/code-agents/src/lib/code-agents-claude-code/claude-code-users/claude-code-sessions.service.ts`, `libs/ai-center/code-agents/src/lib/code-agents-claude-code/claude-code-users/claude-code-sessions.types.ts` (in cx-web-workspace)
 - **What:** Create a new service following Pattern B (per-panel):
 
@@ -429,7 +429,7 @@ for (const result of response.data.result) {
 - **Acceptance:** Service compiles. Returns `SessionBreakdownRow[]`. Repos defaults to "—" when hook metric absent.
 - **Dependencies:** 2.1
 
-### 2.3 [ ] Session table in user drawer
+### 2.3 [x] Session table in user drawer *(completed 2026-05-19)*
 - **Files:** `claude-code-user-dialog.component.ts`, `claude-code-user-dialog.component.html`, `claude-code-users.component.ts` (in `libs/ai-center/code-agents/src/lib/code-agents-claude-code/claude-code-users/` in cx-web-workspace)
 - **What:** Extend the existing user drawer:
 
