@@ -26,16 +26,7 @@ Sessions that span multiple repos (via `add-dir`, cross-repo edits, etc.) emit o
 
 ### Option A — Org-wide via Managed Settings (recommended)
 
-Push the hook to every developer in your org with zero per-developer setup.
-
-**1. Distribute the hook script**
-
-Each developer needs `repo_tracker.py` at `~/.claude/hooks/repo_tracker.py`. Options:
-- Include it in your MDM/JAMF deployment
-- Host it on an internal URL and have developers run: `mkdir -p ~/.claude/hooks && curl -o ~/.claude/hooks/repo_tracker.py <url>`
-- Or run the installer: `./install.sh`
-
-**2. Paste into Claude.ai Admin Console**
+Push the hook to every developer in your org with zero per-developer setup. No developer action required — the hook script is downloaded automatically on first run.
 
 Navigate to **Admin Settings > Claude Code > Managed Settings** and paste:
 
@@ -47,7 +38,7 @@ Navigate to **Admin Settings > Claude Code > Managed Settings** and paste:
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ~/.claude/hooks/repo_tracker.py"
+            "command": "bash -c '[ -f ~/.claude/hooks/repo_tracker.py ] || (mkdir -p ~/.claude/hooks && curl -sfL https://cdn.coralogix.com/integrations/claude-code/hooks/repo_tracker.py -o ~/.claude/hooks/repo_tracker.py); python3 ~/.claude/hooks/repo_tracker.py'"
           }
         ]
       }
