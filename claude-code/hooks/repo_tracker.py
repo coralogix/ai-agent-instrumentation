@@ -13,9 +13,10 @@
 
 """Claude Code PostToolUse hook that tracks repository names per session.
 
-Emits an OTLP gauge metric (claude_code_session_repo_info = 1) with labels
-{session_id, repository_name, user_email} for each unique repo detected
-during a Claude Code session. Zero external dependencies — Python 3 stdlib only.
+Emits an OTLP gauge metric claude_code_session_repo_info with labels
+{session_id, repository_name, user_email}. The gauge value is the cumulative
+tool-use count for that repo in the session, enabling proportional cost
+splitting across repos. Zero external dependencies — Python 3 stdlib only.
 """
 
 import json
@@ -156,22 +157,33 @@ def resolve_repos(paths: list[str]) -> set[str]:
 # Session state (deduplication)
 # ---------------------------------------------------------------------------
 
-def load_emitted_repos(session_id: str) -> set[str]:
-    """Load the set of repos already emitted for this session."""
+def load_repo_counts(session_id: str) -> dict[str, int]:
+    """Load the repo → tool-use-count mapping for this session."""
     state_file = os.path.join(STATE_DIR, f"{session_id}.repos")
     try:
         with open(state_file) as f:
-            return set(line.strip() for line in f if line.strip())
+            data = json.load(f)
+            if isinstance(data, dict):
+                return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    # Migrate from legacy line-per-repo format
+    try:
+        with open(state_file) as f:
+            lines = [line.strip() for line in f if line.strip()]
+            if lines:
+                return {repo: 1 for repo in lines}
     except FileNotFoundError:
-        return set()
+        pass
+    return {}
 
 
-def save_repo(session_id: str, repo: str) -> None:
-    """Append a repo name to the session state file."""
+def save_repo_counts(session_id: str, counts: dict[str, int]) -> None:
+    """Write the full repo → count mapping atomically."""
     os.makedirs(STATE_DIR, exist_ok=True)
     state_file = os.path.join(STATE_DIR, f"{session_id}.repos")
-    with open(state_file, "a") as f:
-        f.write(repo + "\n")
+    with open(state_file, "w") as f:
+        json.dump(counts, f)
 
 
 def maybe_prune_state() -> None:
@@ -243,7 +255,7 @@ def _encode_kv(key: str, string_value: str) -> bytes:
 
 
 def build_otlp_protobuf(
-    session_id: str, repo_name: str, user_email: str,
+    session_id: str, repo_name: str, user_email: str, count: int = 1,
 ) -> bytes:
     """Build an ExportMetricsServiceRequest protobuf for a single gauge data point."""
     now_ns = int(time.time() * 1_000_000_000)
@@ -253,7 +265,7 @@ def build_otlp_protobuf(
     for key, val in [("session_id", session_id), ("repository_name", repo_name), ("user_email", user_email)]:
         dp += _field_bytes(7, _encode_kv(key, val))    # attributes
     dp += _field_fixed64(3, now_ns)                     # time_unix_nano
-    dp += _field_fixed64(6, 1)                          # as_int = 1
+    dp += _field_fixed64(6, count)                      # as_int = tool-use count
 
     # --- Gauge (field 1 = data_points) ---
     gauge = _field_bytes(1, dp)
@@ -286,13 +298,13 @@ def build_otlp_protobuf(
 # OTLP metric emission
 # ---------------------------------------------------------------------------
 
-def emit_metric(session_id: str, repo_name: str, user_email: str) -> None:
+def emit_metric(session_id: str, repo_name: str, user_email: str, count: int = 1) -> None:
     """POST the OTLP protobuf gauge metric to the Coralogix endpoint."""
-    data = build_otlp_protobuf(session_id, repo_name, user_email)
+    data = build_otlp_protobuf(session_id, repo_name, user_email, count)
     url = f"{OTLP_ENDPOINT.rstrip('/')}/v1/metrics"
 
     debug(f"POST {url} ({len(data)} bytes protobuf)")
-    debug(f"  session_id={session_id} repository_name={repo_name} user_email={user_email}")
+    debug(f"  session_id={session_id} repository_name={repo_name} user_email={user_email} count={count}")
 
     req = Request(
         url,
@@ -337,20 +349,20 @@ def main() -> None:
         debug("No git repos found, using 'unknown'")
         repos = {"unknown"}
 
-    # Load known repos for this session and merge with newly detected ones
-    emitted = load_emitted_repos(session_id)
-    new_repos = repos - emitted
-    all_repos = emitted | repos
+    # Load cumulative tool-use counts and increment for repos touched this invocation
+    counts = load_repo_counts(session_id)
+    for repo in repos:
+        counts[repo] = counts.get(repo, 0) + 1
 
     # Always re-emit for ALL known repos (keeps the gauge alive in Prometheus —
     # a gauge emitted once via OTLP push becomes stale after ~5 min).
+    # The gauge value = cumulative tool-use count, used as a weight for cost splitting.
     user_email = event.get("user_email", "")
-    for repo in sorted(all_repos):
-        is_new = repo in new_repos
-        debug(f"{'New repo' if is_new else 'Re-emit'}: {repo} (session={session_id})")
-        emit_metric(session_id, repo, user_email)
-        if is_new:
-            save_repo(session_id, repo)
+    for repo in sorted(counts):
+        debug(f"Emit: {repo} count={counts[repo]} (session={session_id})")
+        emit_metric(session_id, repo, user_email, counts[repo])
+
+    save_repo_counts(session_id, counts)
 
     # Occasional state cleanup
     maybe_prune_state()
