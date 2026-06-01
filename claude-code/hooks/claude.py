@@ -42,8 +42,8 @@ def _resolve_api_key() -> str:
 
 API_KEY = _resolve_api_key()
 OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
-APPLICATION_NAME = os.environ.get("CX_HOOK_APPLICATION_NAME", "claude-code")
-SUBSYSTEM_NAME = os.environ.get("CX_HOOK_SUBSYSTEM_NAME", "ai-agent")
+APPLICATION_NAME = os.environ.get("CX_HOOK_APPLICATION_NAME", "")
+SUBSYSTEM_NAME = os.environ.get("CX_HOOK_SUBSYSTEM_NAME", "")
 
 FILE_PATH_TOOLS = {"Read", "Edit", "Write", "NotebookEdit"}
 SEARCH_PATH_TOOLS = {"Glob", "Grep"}
@@ -171,11 +171,11 @@ def build_otlp_protobuf(session_id: str, repo_name: str, user_email: str) -> byt
     scope = _encode_string(1, "repo-tracker") + _encode_string(2, "1.0.0")
     scope_metrics = _field_bytes(1, scope) + _field_bytes(2, metric)
 
-    resource = b""
-    for key, val in [("service.name", "claude-code-hook"),
-                     ("cx.application.name", APPLICATION_NAME),
-                     ("cx.subsystem.name", SUBSYSTEM_NAME)]:
-        resource += _field_bytes(1, _encode_kv(key, val))
+    resource = _field_bytes(1, _encode_kv("service.name", "claude-code-hook"))
+    if APPLICATION_NAME:
+        resource += _field_bytes(1, _encode_kv("cx.application.name", APPLICATION_NAME))
+    if SUBSYSTEM_NAME:
+        resource += _field_bytes(1, _encode_kv("cx.subsystem.name", SUBSYSTEM_NAME))
 
     resource_metrics = _field_bytes(1, resource) + _field_bytes(2, scope_metrics)
     return _field_bytes(1, resource_metrics)
