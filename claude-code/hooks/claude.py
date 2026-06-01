@@ -34,24 +34,14 @@ from urllib.request import Request, urlopen
 # ---------------------------------------------------------------------------
 
 def _resolve_api_key() -> str:
-    key = os.environ.get("CX_HOOK_API_KEY", "")
-    if key:
-        return key
     headers = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
     if "Bearer " in headers:
         return headers.split("Bearer ", 1)[1].strip()
     return ""
 
 
-def _resolve_endpoint() -> str:
-    endpoint = os.environ.get("CX_HOOK_OTLP_ENDPOINT", "")
-    if endpoint:
-        return endpoint
-    return os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "https://ingress.eu2.coralogix.com")
-
-
 API_KEY = _resolve_api_key()
-OTLP_ENDPOINT = _resolve_endpoint()
+OTLP_ENDPOINT = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 APPLICATION_NAME = os.environ.get("CX_HOOK_APPLICATION_NAME", "claude-code")
 SUBSYSTEM_NAME = os.environ.get("CX_HOOK_SUBSYSTEM_NAME", "ai-agent")
 
@@ -220,7 +210,7 @@ def emit_metric(session_id: str, repo_name: str, user_email: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    if not API_KEY:
+    if not API_KEY or not OTLP_ENDPOINT:
         return
 
     event = json.load(sys.stdin)
