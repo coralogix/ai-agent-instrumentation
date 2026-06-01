@@ -26,7 +26,7 @@ Sessions that span multiple repos (via `add-dir`, cross-repo edits, etc.) emit o
 
 ### Option A — Org-wide via Managed Settings (recommended)
 
-Push the hook to every developer in your org with zero per-developer setup. No developer action required — the hook script is downloaded automatically on first run.
+Push the hook to every developer in your org with zero per-developer setup. No developer action required — the hook script is downloaded automatically on first run and kept up-to-date (SHA-256 hash comparison, checked at most once per hour).
 
 Navigate to **Admin Settings > Claude Code > Managed Settings** and paste:
 
@@ -38,7 +38,7 @@ Navigate to **Admin Settings > Claude Code > Managed Settings** and paste:
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c '[ -f ~/.claude/hooks/repo_tracker.py ] || (mkdir -p ~/.claude/hooks && curl -sfL https://cdn.coralogix.com/integrations/claude-code/hooks/repo_tracker.py -o ~/.claude/hooks/repo_tracker.py); python3 ~/.claude/hooks/repo_tracker.py'"
+            "command": "python3 ~/.claude/hooks/repo_tracker.py"
           }
         ]
       }
@@ -52,6 +52,12 @@ Navigate to **Admin Settings > Claude Code > Managed Settings** and paste:
   }
 }
 ```
+
+The hook command auto-updates the Python script before each run:
+
+1. **First run** — downloads `repo_tracker.py` from the CDN (or `CX_HOOK_SCRIPT_URL`)
+2. **Subsequent runs** — checks at most once per hour; fetches the remote script to a temp file, compares SHA-256 hashes, and replaces the local copy only when a change is detected
+3. **Network failure** — silently skips the update and runs the existing local copy
 
 This can be combined with your existing telemetry env vars (`CLAUDE_CODE_ENABLE_TELEMETRY`, `OTEL_*`) in the same settings block.
 
@@ -94,6 +100,7 @@ No pip packages needed.
 | `CX_HOOK_OTLP_ENDPOINT` | No | `https://ingress.eu2.coralogix.com` | OTLP ingress endpoint for your region |
 | `CX_HOOK_APPLICATION_NAME` | No | `claude-code` | Coralogix application name |
 | `CX_HOOK_SUBSYSTEM_NAME` | No | `ai-agent` | Coralogix subsystem name |
+| `CX_HOOK_SCRIPT_URL` | No | `https://cdn.coralogix.com/integrations/claude-code/hooks/repo_tracker.py` | Override the remote URL for the hook script (auto-update) |
 | `CX_HOOK_DEBUG` | No | — | Set to `1` to print debug info to stderr |
 
 **OTLP endpoint by region:**

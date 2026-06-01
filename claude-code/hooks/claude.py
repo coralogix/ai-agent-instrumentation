@@ -327,25 +327,40 @@ def emit_metric(session_id: str, repo_name: str, user_email: str, count: int = 1
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    _dbg = lambda msg: print(f"[repo-tracker-DBG] {msg}", file=sys.stderr)
+
+    _dbg(f"Hook invoked. API_KEY={'set' if API_KEY else 'EMPTY'}, ENDPOINT={OTLP_ENDPOINT}")
+    debug(f"Hook invoked. API_KEY={'set' if API_KEY else 'EMPTY'}, ENDPOINT={OTLP_ENDPOINT}")
+
     # Guard: no API key → nothing to do
     if not API_KEY:
+        _dbg("CX_HOOK_API_KEY not set, exiting")
         debug("CX_HOOK_API_KEY not set, exiting")
         return
 
     event = json.load(sys.stdin)
     session_id = event.get("session_id")
+    _dbg(f"Event: tool={event.get('tool_name')}, session={session_id}, cwd={event.get('cwd')}")
+    debug(f"Event received: tool_name={event.get('tool_name')}, session_id={session_id}, cwd={event.get('cwd')}")
     if not session_id:
+        _dbg("No session_id in event, exiting")
         debug("No session_id in event, exiting")
         return
 
     # Extract paths and resolve repos
     paths = extract_paths(event)
+    _dbg(f"Paths: {paths}")
+    debug(f"Extracted paths: {paths}")
     if not paths:
+        _dbg("No paths to check, exiting")
         debug("No paths to check, exiting")
         return
 
     repos = resolve_repos(paths)
+    _dbg(f"Repos: {repos}")
+    debug(f"Resolved repos: {repos}")
     if not repos:
+        _dbg("No git repos found, using 'unknown'")
         debug("No git repos found, using 'unknown'")
         repos = {"unknown"}
 
@@ -353,16 +368,21 @@ def main() -> None:
     counts = load_repo_counts(session_id)
     for repo in repos:
         counts[repo] = counts.get(repo, 0) + 1
+    _dbg(f"Counts: {counts}")
+    debug(f"Updated counts: {counts}")
 
     # Always re-emit for ALL known repos (keeps the gauge alive in Prometheus —
     # a gauge emitted once via OTLP push becomes stale after ~5 min).
     # The gauge value = cumulative tool-use count, used as a weight for cost splitting.
     user_email = event.get("user_email", "")
     for repo in sorted(counts):
-        debug(f"Emit: {repo} count={counts[repo]} (session={session_id})")
+        _dbg(f"Emitting: repo={repo}, count={counts[repo]}, user={user_email}")
+        debug(f"Emit: repo={repo}, count={counts[repo]}, user_email={user_email}, session={session_id}")
         emit_metric(session_id, repo, user_email, counts[repo])
 
     save_repo_counts(session_id, counts)
+    _dbg("Done.")
+    debug("State saved. Done.")
 
     # Occasional state cleanup
     maybe_prune_state()
