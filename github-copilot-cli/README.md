@@ -1,51 +1,83 @@
 # GitHub Copilot CLI - Coralogix
 
-Track which git repositories your GitHub Copilot CLI sessions work on and ship them to Coralogix as an OTLP metric, using Copilot's built-in [hooks](https://docs.github.com/en/copilot/reference/hooks-configuration).
+Ship GitHub Copilot CLI activity to Coralogix using Copilot's built-in [hooks](https://docs.github.com/en/copilot/reference/hooks-configuration):
 
-This is the Copilot counterpart of the Claude Code and Codex repo-tracker hooks. Copilot pipes a JSON event to the hook's stdin on every tool call; the hook resolves the repo from the session `cwd` (plus any file path in the tool arguments) via `git rev-parse` + `git remote get-url origin` and emits a metric. Python 3 stdlib only — no dependencies, fails silently, never blocks Copilot.
+- **Repositories** worked on per session — `copilot_cli_session_repo_info` metric
+- **User prompts** — `copilot_cli.user_prompt` log
+- **Assistant responses** — `copilot_cli.assistant_message` log
+
+Copilot CLI emits no telemetry of its own, so a single hook script (`hooks/copilot.py`) reconstructs this from Copilot's lifecycle events and exports it over OTLP. Python 3 stdlib only — no dependencies, fails silently, never blocks Copilot.
+
+The prompt/response logs **mirror Claude Code's native telemetry structure**, so they sit alongside it in Coralogix:
+
+| | Claude Code | Copilot CLI (this hook) |
+|---|---|---|
+| log body | `claude_code.user_prompt` | `copilot_cli.user_prompt` |
+| attributes | `event.name`, `session.id`, `user.email`, … | same |
+| resource | `service.name=claude-code` | `service.name=copilot-cli` |
+| scope | `com.anthropic.claude_code.events` | `com.github.copilot_cli.events` |
 
 ---
 
-## Metric
+## Signals
 
+### Metric — repositories per session
 | Metric | Type | Labels |
 |---|---|---|
 | `copilot_cli_session_repo_info` | gauge (`=1`) | `session_id`, `repository_name`, `user_email` |
 
-`repository_name` is the git `origin` remote (`org/repo`), falling back to the directory name, or `unknown` outside a git repo. Aggregation into per-session cumulative counts is performed downstream.
+Emitted on `postToolUse`. `repository_name` is the git `origin` remote (`org/repo`), falling back to the directory name, or `unknown` outside a repo.
+
+### Logs — prompts & responses
+| Event | OTLP log body | Key attributes |
+|---|---|---|
+| `userPromptSubmitted` | `copilot_cli.user_prompt` | `session.id`, `user.email`, `prompt_length`, **`prompt_text`** |
+| `agentStop` / `sessionEnd` | `copilot_cli.assistant_message` | `session.id`, `model`, `output_tokens`, `turn_id`, `content_length`, **`content`** |
+
+`session_id` is identical across all three signals (and matches the id in Copilot's session-state), so prompts, responses, and repos correlate per session.
+
+> **Note on `prompt_text`:** the prompt text is sent as `prompt_text`, not `prompt`. Claude Code emits a nested `prompt.id`, so in a shared Coralogix log index the `prompt` field is typed as an object and a flat string there is rejected on ingest. `prompt_text` avoids that collision.
 
 ---
 
-## How it works
+## How responses are collected
 
-Copilot's command hooks receive the event JSON on **stdin**. The hook is registered on the `postToolUse` event with no matcher, so it fires after every tool call. The payload provides `sessionId`, `cwd`, `toolName`, and `toolArgs` (the hook also reads the PascalCase `session_id`/`tool_input` variant, so either event-name casing works).
+No Copilot hook payload contains the assistant's reply text (verified by capturing every hook event) — the only source is the session transcript (`events.jsonl`), referenced by `transcriptPath` on `agentStop`. Copilot flushes that file **asynchronously**, so the latest turn's `assistant.message` may not be on disk the moment the hook fires. The hook therefore re-reads the transcript with **backed-off retries** (0.3 → 0.6 → 1.2 → 2.0s) — the hook is awaited by Copilot, whose event loop keeps flushing while we sleep — and **deduplicates by `messageId`** across `agentStop` and `sessionEnd` so each response is shipped exactly once.
 
-This folder provides:
+---
 
-- `hooks/copilot.py` — the hook script (stdlib only)
-- `repo-tracker.json` — the hook config to drop into `~/.copilot/hooks/`
-- `.env.example` — Coralogix credentials template (git-ignored)
+## Configuration
+
+Credentials live in the hook's **`env` block** inside `~/.copilot/hooks/coralogix.json` — Copilot injects them into the hook process, so this is configured entirely through Copilot's own settings (no shell exports, no separate `.env`).
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `CX_API_KEY` | yes | Coralogix Send-Your-Data API key |
+| `CX_OTLP_ENDPOINT` | yes | Coralogix OTLP ingress base URL (the hook POSTs to `…/v1/metrics` and `…/v1/logs`) |
+| `CX_APPLICATION_NAME` | no | `CX-Application-Name` header + `cx.application.name` resource attribute |
+| `CX_SUBSYSTEM_NAME` | no | `CX-Subsystem-Name` header + `cx.subsystem.name` resource attribute |
+| `CX_HOOK_USER_EMAIL` | no | Overrides `user_email`; defaults to `git config user.email` |
+| `CX_HOOK_LOG_PROMPTS` | no | `false` redacts prompt/response **text** (keeps lengths/metadata). Default `true`. Mirrors Claude Code's `OTEL_LOG_USER_PROMPTS`. |
+
+> **Privacy:** with the prompt/response events enabled and `CX_HOOK_LOG_PROMPTS=true` (default), full prompt and response **text** is sent to Coralogix. Set `CX_HOOK_LOG_PROMPTS=false`, or omit the `userPromptSubmitted`/`agentStop`/`sessionEnd` entries, to disable content capture.
 
 ---
 
 ## Setup
 
-### 1. Configure your Coralogix credentials
+### Option A — installer (recommended)
 
 ```bash
-cp .env.example .env
+./install.sh --api-key <key> --endpoint https://ingress.<region>.coralogix.com \
+  --application copilot --subsystem copilot-sessions --with-prompts
 ```
 
-Fill in `.env`:
+This installs `hooks/copilot.py` to `~/.copilot/hooks/`, writes `~/.copilot/hooks/coralogix.json` (chmod 600) with the credentials in each hook's `env` block, and runs a smoke test.
 
-```
-CX_API_KEY=<your-send-your-data-api-key>
-CX_OTLP_ENDPOINT=https://ingress.eu1.coralogix.com
-CX_APPLICATION_NAME=copilot
-CX_SUBSYSTEM_NAME=copilot-sessions
-```
-
-Find your Send-Your-Data API key under **Settings → API Keys** in your Coralogix tenant.
+- Omit `--with-prompts` to install **only** repo tracking (no prompt/response capture).
+- Add `--mask-prompts` to capture prompts/responses **without** their text.
+- Credentials can also come from a `.env` file: `./install.sh --env-file .env --with-prompts`.
+- Remove everything: `./install.sh --uninstall`.
 
 **OTLP ingress by region:**
 
@@ -59,74 +91,41 @@ Find your Send-Your-Data API key under **Settings → API Keys** in your Coralog
 | `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
 | `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
 
-### 2. Load your credentials into the shell
+### Option B — manual (edit Copilot settings yourself)
 
-Add this to your `~/.zshrc` (or `~/.bashrc`) so the credentials are present whenever Copilot runs the hook (replace the path — run `pwd` inside this directory to get it):
+1. Copy the hook script somewhere stable (or just reference it in place).
+2. Copy [`coralogix.json`](./coralogix.json) to `~/.copilot/hooks/coralogix.json`.
+3. In that file, replace `python3 /absolute/path/to/.../copilot.py` with the real path and fill in the `env` block. Drop the `userPromptSubmitted`/`agentStop`/`sessionEnd` entries if you only want repo tracking.
 
-```bash
-if [ -f "/absolute/path/to/github-copilot-cli/.env" ]; then
-  set -a; source "/absolute/path/to/github-copilot-cli/.env"; set +a
-fi
-```
+`chmod 600 ~/.copilot/hooks/coralogix.json` since it holds your API key.
 
-Then reload:
+---
 
-```bash
-source ~/.zshrc
-```
+## Verify
 
-> The hook reads the Coralogix endpoint and key from these env vars and exits silently if either is unset, so it's safe to install before credentials are configured.
-
-### 3. Register the hook
-
-Edit `repo-tracker.json` and replace the placeholder paths with the absolute path to `hooks/copilot.py`, then copy it into your user hooks directory:
+Run a Copilot session in a git repo, then (one-shot gauge/log points → use a **range** query):
 
 ```bash
-mkdir -p ~/.copilot/hooks
-cp repo-tracker.json ~/.copilot/hooks/repo-tracker.json
+# Repositories:
+cx metrics query-range 'count by (repository_name) (copilot_cli_session_repo_info)' --start now-1h --region <region>
+
+# Prompts:
+cx logs "filter \$d.logRecord.body == 'copilot_cli.user_prompt'" --start now-1h --region <region>
+
+# Responses:
+cx logs "filter \$d.logRecord.body == 'copilot_cli.assistant_message'" --start now-1h --region <region>
 ```
 
-The config registers a `postToolUse` command hook:
-
-```json
-{
-  "version": 1,
-  "hooks": {
-    "postToolUse": [
-      {
-        "type": "command",
-        "bash": "python3 /absolute/path/to/github-copilot-cli/hooks/copilot.py",
-        "timeoutSec": 10
-      }
-    ]
-  }
-}
-```
-
-> Hooks are also discovered from `.github/hooks/*.json` (repo-level) and the `hooks` field of `~/.copilot/settings.json`. See the [Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-configuration) for all sources.
-
-### 4. Run Copilot
-
-Run a Copilot CLI session in a git repo, then verify in Coralogix:
-
-```promql
-count by (repository_name) (copilot_cli_session_repo_info)
-```
-
-You can test the hook locally without launching Copilot by piping a sample event to it:
+You can also drive the hook by hand:
 
 ```bash
-echo '{"sessionId":"test","cwd":"'"$PWD"'","toolName":"shell","toolArgs":{}}' | python3 hooks/copilot.py
+echo '{"sessionId":"test","cwd":"'"$PWD"'","toolName":"shell","toolArgs":{}}' \
+  | CX_API_KEY=… CX_OTLP_ENDPOINT=https://ingress.<region>.coralogix.com python3 hooks/copilot.py
 ```
 
 ---
 
-## Configuration
+## Requirements
 
-| Env var | Required | Purpose |
-|---|---|---|
-| `CX_API_KEY` | yes | Coralogix Send-Your-Data API key (bearer token) |
-| `CX_OTLP_ENDPOINT` | yes | Coralogix OTLP ingress base URL; the hook POSTs to `…/v1/metrics` |
-| `CX_APPLICATION_NAME` | no | Stamped as the `CX-Application-Name` header + `cx.application.name` resource attribute |
-| `CX_SUBSYSTEM_NAME` | no | Stamped as the `CX-Subsystem-Name` header + `cx.subsystem.name` resource attribute |
-| `CX_HOOK_USER_EMAIL` | no | Overrides the `user_email` label; defaults to `git config user.email` |
+- `python3` and `git` on the `PATH` Copilot launches with (stdlib only — no `pip` install).
+- A Coralogix Send-Your-Data API key (**Settings → API Keys**).
