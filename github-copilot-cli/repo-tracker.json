@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 /absolute/path/to/github-copilot-cli/hooks/copilot.py",
+        "powershell": "python3 C:\\absolute\\path\\to\\github-copilot-cli\\hooks\\copilot.py",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
