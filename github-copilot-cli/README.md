@@ -65,23 +65,40 @@ Credentials live in the hook's **`env` block** inside `~/.copilot/hooks/coralogi
 
 ## Setup
 
-### Option A — installer (recommended)
+Configure everything through Copilot's own hook settings — no shell exports, wrappers, or separate credential files.
 
-```bash
-./install.sh --api-key <key> --endpoint https://ingress.<region>.coralogix.com \
-  --application copilot --subsystem copilot-sessions --with-prompts
-```
+1. **Place the config.** Copy [`coralogix.json`](./coralogix.json) into your Copilot hooks dir:
 
-This installs `hooks/copilot.py` to `~/.copilot/hooks/`, writes `~/.copilot/hooks/coralogix.json` (chmod 600) with the credentials in each hook's `env` block, and runs a smoke test.
+   ```bash
+   mkdir -p ~/.copilot/hooks
+   cp coralogix.json ~/.copilot/hooks/coralogix.json
+   ```
 
-- Omit `--with-prompts` to install **only** repo tracking (no prompt/response capture).
-- Add `--mask-prompts` to capture prompts/responses **without** their text.
-- Credentials can also come from a `.env` file: `./install.sh --env-file .env --with-prompts`.
-- Remove everything: `./install.sh --uninstall`.
+2. **Point it at the hook.** Replace every `python3 /absolute/path/to/github-copilot-cli/hooks/copilot.py` with the real absolute path to `hooks/copilot.py` (run `pwd` inside `github-copilot-cli/`).
+
+3. **Fill in the `env` block** in each hook entry — Copilot injects it into the hook process:
+
+   ```json
+   "env": {
+     "CX_API_KEY": "<your-send-your-data-api-key>",
+     "CX_OTLP_ENDPOINT": "https://ingress.eu2.coralogix.com",
+     "CX_APPLICATION_NAME": "copilot",
+     "CX_SUBSYSTEM_NAME": "copilot-sessions",
+     "CX_HOOK_LOG_PROMPTS": "true"
+   }
+   ```
+
+4. **Lock it down** (it holds your API key): `chmod 600 ~/.copilot/hooks/coralogix.json`.
+
+5. Start Copilot — the hooks fire automatically.
+
+**Scope it to taste:**
+- **Repo tracking only** (no prompt/response capture): keep just the `postToolUse` entry; delete `userPromptSubmitted`, `agentStop`, and `sessionEnd`.
+- **Capture metadata but not text:** set `CX_HOOK_LOG_PROMPTS` to `"false"`.
 
 **OTLP ingress by region:**
 
-| Domain | OTLP endpoint |
+| Domain | `CX_OTLP_ENDPOINT` |
 |---|---|
 | `us1.coralogix.com` | `https://ingress.us1.coralogix.com` |
 | `us2.coralogix.com` | `https://ingress.us2.coralogix.com` |
@@ -90,14 +107,6 @@ This installs `hooks/copilot.py` to `~/.copilot/hooks/`, writes `~/.copilot/hook
 | `ap1.coralogix.com` | `https://ingress.ap1.coralogix.com` |
 | `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
 | `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
-
-### Option B — manual (edit Copilot settings yourself)
-
-1. Copy the hook script somewhere stable (or just reference it in place).
-2. Copy [`coralogix.json`](./coralogix.json) to `~/.copilot/hooks/coralogix.json`.
-3. In that file, replace `python3 /absolute/path/to/.../copilot.py` with the real path and fill in the `env` block. Drop the `userPromptSubmitted`/`agentStop`/`sessionEnd` entries if you only want repo tracking.
-
-`chmod 600 ~/.copilot/hooks/coralogix.json` since it holds your API key.
 
 ---
 

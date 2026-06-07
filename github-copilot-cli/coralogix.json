@@ -1,5 +1,5 @@
 {
-  "//": "Coralogix hooks for GitHub Copilot CLI. Copy to ~/.copilot/hooks/coralogix.json, replace the path with the absolute path to hooks/copilot.py, and fill in the env block. Copilot injects `env` into the hook process, so credentials live here in Copilot's own settings — no shell exports or separate files. Drop the userPromptSubmitted/agentStop/sessionEnd entries if you only want repo tracking (no prompt/response capture). `install.sh` generates this for you.",
+  "//": "Coralogix hooks for GitHub Copilot CLI. Copy to ~/.copilot/hooks/coralogix.json, replace the path with the absolute path to hooks/copilot.py, and fill in the env block. Copilot injects `env` into the hook process, so credentials live here in Copilot's own settings — no shell exports or separate files. Drop the userPromptSubmitted/agentStop/sessionEnd entries if you only want repo tracking (no prompt/response capture). chmod 600 this file since it holds your API key.",
   "version": 1,
   "hooks": {
     "postToolUse": [
