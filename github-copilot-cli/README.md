@@ -110,6 +110,25 @@ Configure everything through Copilot's own hook settings — no shell exports, w
 
 ---
 
+## Fleet deployment (Jamf)
+
+`jamf-deploy.sh` installs the hook + config for the **logged-in console user** across a fleet via a Jamf Pro policy. Jamf runs scripts as root, so the script detects the console user and writes to *their* `~/.copilot/hooks/`.
+
+Add it as a Jamf script and set the parameters:
+
+| Param | Meaning | Example |
+|---|---|---|
+| `$4` | Coralogix API key | `cxtp_…` |
+| `$5` | OTLP endpoint | `https://ingress.eu2.coralogix.com` |
+| `$6` | Application name | `copilot` |
+| `$7` | Subsystem name | `copilot-sessions` |
+| `$8` | Mode | `full` (repo + prompts + responses) · `mask` (no text) · `repo-only` |
+| `$9` | `uninstall` to remove | |
+
+The hook source (`hooks/copilot.py`) is read from the script's own directory by default — deploy the `github-copilot-cli/` folder alongside it (e.g. via a package or `git clone`), or set `HOOK_SOURCE_DIR`. Credentials are written into the `env` block of `~/.copilot/hooks/coralogix.json` (chmod 600). The same parameters also work as environment variables for other MDMs (Intune, Ansible).
+
+---
+
 ## Verify
 
 Run a Copilot session in a git repo, then (one-shot gauge/log points → use a **range** query):
