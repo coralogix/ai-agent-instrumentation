@@ -66,18 +66,20 @@ API_KEY = _resolve_api_key()
 OTLP_ENDPOINT = (
     os.environ.get("CX_HOOK_OTLP_ENDPOINT")
     or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-    or "https://ingress.eu2.coralogix.com"
+    or ""
 )
-# Application/subsystem must always be present or Coralogix drops the metric.
+# Application/subsystem are stamped only when explicitly configured; otherwise
+# routing falls to the API key's admin-panel configuration (as the metric is
+# emitted with the API key's bearer token).
 APPLICATION_NAME = (
     os.environ.get("CX_HOOK_APPLICATION_NAME")
     or _RESOURCE_ATTRS.get("cx.application.name")
-    or "claude-code"
+    or ""
 )
 SUBSYSTEM_NAME = (
     os.environ.get("CX_HOOK_SUBSYSTEM_NAME")
     or _RESOURCE_ATTRS.get("cx.subsystem.name")
-    or "ai-agent"
+    or ""
 )
 
 FILE_PATH_TOOLS = {"Read", "Edit", "Write", "NotebookEdit"}
