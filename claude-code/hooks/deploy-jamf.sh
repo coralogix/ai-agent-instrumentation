@@ -1,3 +1,27 @@
+#!/bin/zsh
+# ==============================================================================
+# Jamf Deployment Script: Deploy the Claude Code repo-tracker hook
+# Target Path: /usr/local/bin/claude.py
+#
+# Runs as root via Jamf policy. Writes the PostToolUse hook to a stable system
+# path so it can be referenced from Claude Code's managed/global settings.
+# The Python below is kept byte-for-byte in sync with claude-code/hooks/claude.py.
+# ==============================================================================
+
+set -e
+
+# 1. Define target directory and file path
+TARGET_DIR="/usr/local/bin"
+TARGET_FILE="${TARGET_DIR}/claude.py"
+
+# 2. Ensure target directory exists
+if [ ! -d "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+fi
+
+# 3. Write the Python code using a single-quoted EOF here-doc.
+# The quoted 'EOF' prevents zsh from interpreting $ variables in the script.
+cat << 'EOF' > "$TARGET_FILE"
 #!/usr/bin/env python3
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -271,3 +295,11 @@ if __name__ == "__main__":
         main()
     except Exception:
         sys.exit(0)
+EOF
+
+# 4. Set ownership and permissions (root-owned, world-executable)
+chown root:wheel "$TARGET_FILE"
+chmod 755 "$TARGET_FILE"
+
+echo "Deployed Claude Code repo-tracker hook to ${TARGET_FILE}"
+exit 0
