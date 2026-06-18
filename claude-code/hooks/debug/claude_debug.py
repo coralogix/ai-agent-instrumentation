@@ -118,15 +118,30 @@ def _parse_resource_attributes() -> dict:
     return attrs
 
 
+# ===========================================================================
+# EMBEDDED API KEY
 # ---------------------------------------------------------------------------
-# Convenience defaults — used only when the corresponding env var is NOT set.
-# This lets the script run standalone on Windows, where Claude Code does not
-# propagate the settings `env` block into hook subprocesses (GitHub #20112).
+# Paste your Coralogix Send-Your-Data API key between the quotes below. The
+# debug hook will use it directly, with NO dependency on the env vars Claude
+# Code injects — which is the whole point: Claude Code strips OTEL_* from hook
+# subprocess environments (and on Windows does not propagate the settings `env`
+# block at all, GitHub #20112), so a hardcoded key is the only thing that
+# reliably reaches a deployed hook.
 #
-# IMPORTANT: NO secret is hardcoded here. The API key is intentionally empty —
-# provide it via the CX_HOOK_API_KEY env var (or an OTLP Bearer header).
-# ---------------------------------------------------------------------------
-DEFAULT_API_KEY = ""
+# ⚠️  SECURITY — READ BEFORE EDITING:
+#   • This file lives in a PUBLIC repository. NEVER commit a real key here.
+#     Anything pushed to a public repo is scraped and compromised within
+#     minutes — a committed key must be considered burned and rotated.
+#   • Fill this in ONLY on the deployed/local machine (or in a private fork),
+#     AFTER checkout. Keep the value as the placeholder in version control.
+#   • The key is a Send-Your-Data ("ingress") key, found under
+#     Settings → API Keys in your Coralogix tenant.
+#
+# An env var (CX_HOOK_API_KEY, or a Bearer token in OTEL_EXPORTER_OTLP_HEADERS)
+# still takes precedence over this const if one happens to be present.
+# ===========================================================================
+EMBEDDED_API_KEY = "PASTE_YOUR_CX_KEY_HERE"
+
 DEFAULT_OTLP_ENDPOINT = "https://ingress.us2.coralogix.com"
 DEFAULT_APPLICATION_NAME = "claude-code"
 DEFAULT_SUBSYSTEM_NAME = "claude-code-sessions"
@@ -147,7 +162,9 @@ def _resolve_api_key() -> tuple[str, str]:
     headers = os.environ.get("OTEL_EXPORTER_OTLP_HEADERS", "")
     if "Bearer " in headers:
         return headers.split("Bearer ", 1)[1].strip(), "OTEL_EXPORTER_OTLP_HEADERS"
-    return DEFAULT_API_KEY, "DEFAULT (empty — set CX_HOOK_API_KEY)"
+    if EMBEDDED_API_KEY and EMBEDDED_API_KEY != "PASTE_YOUR_CX_KEY_HERE":
+        return EMBEDDED_API_KEY, "EMBEDDED_API_KEY (hardcoded const)"
+    return "", "NONE (set EMBEDDED_API_KEY const or CX_HOOK_API_KEY env)"
 
 
 def _resolve_endpoint() -> tuple[str, str]:
