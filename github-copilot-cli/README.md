@@ -1,159 +1,164 @@
-# GitHub Copilot CLI - Coralogix
+# GitHub Copilot CLI → Coralogix (native OpenTelemetry)
 
-Ship GitHub Copilot CLI activity to Coralogix using Copilot's built-in [hooks](https://docs.github.com/en/copilot/reference/hooks-configuration):
+Ship GitHub Copilot CLI activity to Coralogix using Copilot's **native
+OpenTelemetry** — no lifecycle hooks, no OpenTelemetry Collector, no file
+exporter, no uploader script. Just environment variables.
 
-- **Repositories** worked on per session — `copilot_cli_session_repo_info` metric
-- **User prompts** — `copilot_cli.user_prompt` log
-- **Assistant responses** — `copilot_cli.assistant_message` log
+The Copilot CLI has built-in OTel (`copilot help monitoring`) following the
+[OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/),
+and it exports **both traces (GenAI spans) and metrics** over OTLP. Pointed at
+Coralogix's OTLP ingress with the right auth/routing headers, it talks to
+Coralogix directly:
 
-Copilot CLI emits no telemetry of its own, so a single hook script (`hooks/copilot.py`) reconstructs this from Copilot's lifecycle events and exports it over OTLP. Python 3 stdlib only — no dependencies, fails silently, never blocks Copilot.
+```
+copilot --(native OTLP)--> https://ingress.<region>.coralogix.com
+         traces + metrics, incl. prompt/response content
+```
 
-The prompt/response logs **mirror Claude Code's native telemetry structure**, so they sit alongside it in Coralogix:
-
-| | Claude Code | Copilot CLI (this hook) |
-|---|---|---|
-| log body | `claude_code.user_prompt` | `copilot_cli.user_prompt` |
-| attributes | `event.name`, `session.id`, `user.email`, … | same |
-| resource | `service.name=claude-code` | `service.name=copilot-cli` |
-| scope | `com.anthropic.claude_code.events` | `com.github.copilot_cli.events` |
-
----
-
-## Signals
-
-### Metric — repositories per session
-| Metric | Type | Labels |
-|---|---|---|
-| `copilot_cli_session_repo_info` | gauge (`=1`) | `session_id`, `repository_name`, `user_email` |
-
-Emitted on `postToolUse`. `repository_name` is the git `origin` remote (`org/repo`), falling back to the directory name, or `unknown` outside a repo.
-
-### Logs — prompts & responses
-| Event | OTLP log body | Key attributes |
-|---|---|---|
-| `userPromptSubmitted` | `copilot_cli.user_prompt` | `session.id`, `user.email`, `prompt_length`, **`prompt_text`** |
-| `agentStop` / `sessionEnd` | `copilot_cli.assistant_message` | `session.id`, `model`, `output_tokens`, `turn_id`, `content_length`, **`content`** |
-
-`session_id` is identical across all three signals (and matches the id in Copilot's session-state), so prompts, responses, and repos correlate per session.
-
-> **Note on `prompt_text`:** the prompt text is sent as `prompt_text`, not `prompt`. Claude Code emits a nested `prompt.id`, so in a shared Coralogix log index the `prompt` field is typed as an object and a flat string there is rejected on ingest. `prompt_text` avoids that collision.
+Everything is configured through a single sourceable env file
+([`copilot-coralogix.env`](./copilot-coralogix.env)).
 
 ---
 
-## How responses are collected
+## What lands in Coralogix
 
-No Copilot hook payload contains the assistant's reply text (verified by capturing every hook event) — the only source is the session transcript (`events.jsonl`), referenced by `transcriptPath` on `agentStop`. Copilot flushes that file **asynchronously**, so the latest turn's `assistant.message` may not be on disk the moment the hook fires. The hook therefore re-reads the transcript with **backed-off retries** (0.3 → 0.6 → 1.2 → 2.0s) — the hook is awaited by Copilot, whose event loop keeps flushing while we sleep — and **deduplicates by `messageId`** across `agentStop` and `sessionEnd` so each response is shipped exactly once.
+Telemetry arrives under application `copilot-cli`, service `github-copilot`:
 
----
+### Traces — GenAI spans
+`invoke_agent` → `chat <model>` / `execute_tool <tool>`, with attributes like
+`gen_ai.request.model`, `gen_ai.usage.input_tokens`,
+`gen_ai.usage.output_tokens`, and `github.copilot.cost`. With content capture
+on (the default), each `chat` span also carries the conversation:
 
-## Configuration
+- `gen_ai.input.messages` — the user prompt(s)
+- `gen_ai.output.messages` — the assistant response (incl. reasoning)
+- `gen_ai.system_instructions` — the system prompt
+- `gen_ai.tool.definitions` — available tool schemas
 
-Credentials live in the hook's **`env` block** inside `~/.copilot/hooks/coralogix.json` — Copilot injects them into the hook process, so this is configured entirely through Copilot's own settings (no shell exports, no separate `.env`).
+### Metrics
+Copilot's native GenAI metrics (token usage, request counts, cost) over the same
+OTLP endpoint.
 
-| Variable | Required | Purpose |
-|---|---|---|
-| `CX_API_KEY` | yes | Coralogix Send-Your-Data API key |
-| `CX_OTLP_ENDPOINT` | yes | Coralogix OTLP ingress base URL (the hook POSTs to `…/v1/metrics` and `…/v1/logs`) |
-| `CX_APPLICATION_NAME` | no | `CX-Application-Name` header + `cx.application.name` resource attribute |
-| `CX_SUBSYSTEM_NAME` | no | `CX-Subsystem-Name` header + `cx.subsystem.name` resource attribute |
-| `CX_HOOK_USER_EMAIL` | no | Overrides `user_email`; defaults to `git config user.email` |
-| `CX_HOOK_LOG_PROMPTS` | no | `false` redacts prompt/response **text** (keeps lengths/metadata). Default `true`. Mirrors Claude Code's `OTEL_LOG_USER_PROMPTS`. |
-
-> **Privacy:** with the prompt/response events enabled and `CX_HOOK_LOG_PROMPTS=true` (default), full prompt and response **text** is sent to Coralogix. Set `CX_HOOK_LOG_PROMPTS=false`, or omit the `userPromptSubmitted`/`agentStop`/`sessionEnd` entries, to disable content capture.
+### AI-session dataset
+Every span carries `cx.integration.source.type=copilot_cli_agent` (and
+`cx.integration.source.version`). Per the `#tmp-ai-session-dataset` agreement
+(Jira **CX-46024**), this lets ingestion detect the telemetry as an AI-session
+source and route it to the dedicated `ai.sessions.*` dataset (entity type
+`aiSessionsCopilot`) — the Copilot counterpart of Claude Code's
+`claude_code_agent`. `user.email` is attached so usage attributes to a real
+person rather than only Copilot's anonymized `enduser.pseudo.id`.
 
 ---
 
 ## Setup
 
-Configure everything through Copilot's own hook settings — no shell exports, wrappers, or separate credential files.
-
-1. **Place the config.** Copy [`coralogix.json`](./coralogix.json) into your Copilot hooks dir:
+1. **Install the env file** and fill in your Coralogix key:
 
    ```bash
-   mkdir -p ~/.copilot/hooks
-   cp coralogix.json ~/.copilot/hooks/coralogix.json
+   mkdir -p ~/.copilot
+   cp copilot-coralogix.env ~/.copilot/coralogix.env
+   chmod 600 ~/.copilot/coralogix.env          # it holds your API key
+   # edit ~/.copilot/coralogix.env → replace <your-send-your-data-api-key>
    ```
 
-2. **Point it at the hook.** Replace every `python3 /absolute/path/to/github-copilot-cli/hooks/copilot.py` with the real absolute path to `hooks/copilot.py` (run `pwd` inside `github-copilot-cli/`).
+2. **Pick your region's endpoint** in the file (`OTEL_EXPORTER_OTLP_ENDPOINT`),
+   default is `eu2`:
 
-3. **Fill in the `env` block** in each hook entry — Copilot injects it into the hook process:
+   | Domain | `OTEL_EXPORTER_OTLP_ENDPOINT` |
+   |---|---|
+   | `us1.coralogix.com` | `https://ingress.us1.coralogix.com` |
+   | `us2.coralogix.com` | `https://ingress.us2.coralogix.com` |
+   | `eu1.coralogix.com` | `https://ingress.eu1.coralogix.com` |
+   | `eu2.coralogix.com` | `https://ingress.eu2.coralogix.com` |
+   | `ap1.coralogix.com` | `https://ingress.ap1.coralogix.com` |
+   | `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
+   | `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
 
-   ```json
-   "env": {
-     "CX_API_KEY": "<your-send-your-data-api-key>",
-     "CX_OTLP_ENDPOINT": "https://ingress.eu2.coralogix.com",
-     "CX_APPLICATION_NAME": "copilot",
-     "CX_SUBSYSTEM_NAME": "copilot-sessions",
-     "CX_HOOK_LOG_PROMPTS": "true"
-   }
+3. **Source it, then run Copilot** — best is to source it automatically from
+   your shell rc so every session is instrumented:
+
+   ```bash
+   echo '[ -f "$HOME/.copilot/coralogix.env" ] && . "$HOME/.copilot/coralogix.env"' >> ~/.zshrc
+   # then, in a new shell:
+   copilot -p "explain this repo" --allow-all-tools
    ```
 
-4. **Lock it down** (it holds your API key): `chmod 600 ~/.copilot/hooks/coralogix.json`.
+   Or just `source ~/.copilot/coralogix.env` in the shell you run `copilot` from.
 
-5. Start Copilot — the hooks fire automatically.
+---
 
-**Scope it to taste:**
-- **Repo tracking only** (no prompt/response capture): keep just the `postToolUse` entry; delete `userPromptSubmitted`, `agentStop`, and `sessionEnd`.
-- **Capture metadata but not text:** set `CX_HOOK_LOG_PROMPTS` to `"false"`.
+## Configuration
 
-**OTLP ingress by region:**
+All settings live in `copilot-coralogix.env` and are **required** (the resource
+attributes and the IPv6 fix included). Why each one is needed:
 
-| Domain | `CX_OTLP_ENDPOINT` |
-|---|---|
-| `us1.coralogix.com` | `https://ingress.us1.coralogix.com` |
-| `us2.coralogix.com` | `https://ingress.us2.coralogix.com` |
-| `eu1.coralogix.com` | `https://ingress.eu1.coralogix.com` |
-| `eu2.coralogix.com` | `https://ingress.eu2.coralogix.com` |
-| `ap1.coralogix.com` | `https://ingress.ap1.coralogix.com` |
-| `ap2.coralogix.com` | `https://ingress.ap2.coralogix.com` |
-| `ap3.coralogix.com` | `https://ingress.ap3.coralogix.com` |
+| Variable | Set to | Why it's needed |
+|---|---|---|
+| `COPILOT_OTEL_ENABLED` | `true` | Master switch for Copilot's built-in OpenTelemetry. Without it Copilot emits no telemetry at all, so nothing else here has any effect. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://ingress.<region>.coralogix.com` | Where the OTLP exporter ships traces + metrics. Points Copilot at **your** Coralogix region's ingress — a wrong/missing region means the data never arrives. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Bearer <cxtp_ key>,CX-Application-Name=copilot-cli,CX-Subsystem-Name=copilot-sessions` | Authenticates and routes the export. The Bearer key is the credential (Coralogix rejects with 401 without it); the `CX-Application-Name` / `CX-Subsystem-Name` headers decide which application/subsystem the telemetry files under. |
+| `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` | `true` | Captures the actual prompt / response / system-prompt / tool-schema **text** into the GenAI spans. `false` keeps only metadata (token counts, model, cost). Required if you want to see the conversation, not just stats. |
+| `OTEL_SERVICE_NAME` | `github-copilot` | Sets the resource `service.name` — the identity the telemetry appears under in Coralogix (service grouping, APM/trace views). Without it spans land under a generic/unknown service. |
+| `OTEL_RESOURCE_ATTRIBUTES` | `user.email=$(git config user.email …),cx.integration.source.type=copilot_cli_agent,cx.integration.source.version=1.0.0` | `user.email` attributes usage to a real person instead of only Copilot's anonymized `enduser.pseudo.id`. `cx.integration.source.*` tags the stream as an AI-session source so ingestion routes it to the dedicated `ai.sessions.*` dataset (CX-46024) instead of regular logs. |
+| `NODE_OPTIONS` | `--dns-result-order=ipv4first` | Copilot's OTLP client tries IPv6 first and does **not** fall back to IPv4; on a host with no IPv6 route every export fails with `HTTP export failed: network error`. This makes Node resolve IPv4 first. Harmless where IPv6 works. |
+
+> **Privacy:** with `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`
+> (the default), full prompt, response, system-prompt and tool-schema **text** —
+> including code and file contents — is sent to Coralogix. Set it to `false` to
+> ship metadata only (token counts, model, cost). Copilot's own default is
+> `false`; this integration defaults to `true`. Only enable content capture in
+> trusted environments.
+
+> **IPv6:** Coralogix's ingress has an AAAA record and Copilot's OTLP client
+> tries IPv6 first **without** falling back to IPv4 — on a host with no IPv6
+> route, every export fails with `HTTP export failed: network error`.
+> `NODE_OPTIONS=--dns-result-order=ipv4first` makes Node resolve IPv4 first (no
+> sudo, no host pin). If that isn't enough, pin the A record once:
+> `echo "$(dig +short A ingress.eu2.coralogix.com | head -1) ingress.eu2.coralogix.com" | sudo tee -a /etc/hosts`.
 
 ---
 
 ## Fleet deployment (Jamf)
 
-`jamf-deploy.sh` installs the hook + config for the **logged-in console user** across a fleet via a Jamf Pro policy. Jamf runs scripts as root, so the script detects the console user and writes to *their* `~/.copilot/hooks/`.
+`jamf-deploy.sh` installs `~/.copilot/coralogix.env` for the **logged-in console
+user** and wires it into their shell rc, fleet-wide via a Jamf Pro policy. Jamf
+runs scripts as root, so the script detects the console user and writes to
+*their* home.
 
 Add it as a Jamf script and set the parameters:
 
 | Param | Meaning | Example |
 |---|---|---|
-| `$4` | Coralogix API key | `cxtp_…` |
-| `$5` | OTLP endpoint | `https://ingress.eu2.coralogix.com` |
-| `$6` | Application name | `copilot` |
+| `$4` | Coralogix Send-Your-Data API key | `cxtp_…` |
+| `$5` | OTLP endpoint (or bare region domain) | `https://ingress.eu2.coralogix.com` |
+| `$6` | Application name | `copilot-cli` |
 | `$7` | Subsystem name | `copilot-sessions` |
-| `$8` | Mode | `full` (repo + prompts + responses) · `mask` (no text) · `repo-only` |
+| `$8` | Mode | `full` (capture content, default) · `metadata` (no text) |
 | `$9` | `uninstall` to remove | |
 
-The hook source (`hooks/copilot.py`) is read from the script's own directory by default — deploy the `github-copilot-cli/` folder alongside it (e.g. via a package or `git clone`), or set `HOOK_SOURCE_DIR`. Credentials are written into the `env` block of `~/.copilot/hooks/coralogix.json` (chmod 600). The same parameters also work as environment variables for other MDMs (Intune, Ansible).
+The script writes the env file (chmod 600 — it holds the API key) and adds a
+guarded `source` line to the user's `~/.zshrc` and `~/.bash_profile`. The same
+parameters also work as environment variables for other MDMs (Intune, Ansible).
 
 ---
 
 ## Verify
 
-Run a Copilot session in a git repo, then (one-shot gauge/log points → use a **range** query):
+Run a Copilot session, then query the spans (use a `cxup_` query key; a `cxtp_`
+ingest key has no query scope):
 
 ```bash
-# Repositories:
-cx metrics query-range 'count by (repository_name) (copilot_cli_session_repo_info)' --start now-1h --region <region>
+# Recent spans for this app
+cx spans "limit 20" --start now-30m
 
-# Prompts:
-cx logs "filter \$d.logRecord.body == 'copilot_cli.user_prompt'" --start now-1h --region <region>
-
-# Responses:
-cx logs "filter \$d.logRecord.body == 'copilot_cli.assistant_message'" --start now-1h --region <region>
-```
-
-You can also drive the hook by hand:
-
-```bash
-echo '{"sessionId":"test","cwd":"'"$PWD"'","toolName":"shell","toolArgs":{}}' \
-  | CX_API_KEY=… CX_OTLP_ENDPOINT=https://ingress.<region>.coralogix.com python3 hooks/copilot.py
+# Confirm captured content is present
+cx spans "limit 50" --start now-30m -o json | grep -o 'gen_ai.input.messages'
 ```
 
 ---
 
 ## Requirements
 
-- `python3` and `git` on the `PATH` Copilot launches with (stdlib only — no `pip` install).
+- The GitHub Copilot CLI (`copilot help monitoring` shows the OTel support).
+- `git` on the `PATH` (used to resolve `user.email` for the resource attribute).
 - A Coralogix Send-Your-Data API key (**Settings → API Keys**).
