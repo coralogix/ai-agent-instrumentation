@@ -179,6 +179,37 @@ Alternatively, use Claude Code's own [settings file](https://docs.anthropic.com/
 
 ---
 
+## Repo-tracker hook (macOS only)
+
+The optional `PostToolUse` repo-tracker hook (`hooks/claude.py`, staged fleet-wide via `deploy-jamf.sh` or `deploy-jumpcloud.sh`) is a Python script. Windows has two problems with registering it directly:
+
+- Claude Code does not propagate the `env` block from settings to hooks on Windows ([claude-code#20112](https://github.com/anthropics/claude-code/issues/20112)), so the hook can never resolve its Coralogix API key there.
+- `python3` may not even be on `PATH` on a Windows dev machine.
+
+Rather than let the hook fail (or configure it per-OS), register it in Managed Settings behind a small Node.js guard that only runs the Python hook on macOS and is a silent no-op everywhere else:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"if(process.platform==='darwin'){const r=require('child_process').spawnSync('python3',['/usr/local/bin/claude.py'],{stdio:'inherit'});process.exit(r.status||0)}\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Node ships with Claude Code's own runtime requirements on every platform, so this command always exists — it just chooses to do nothing on Windows and Linux.
+
+---
+
 ## Pre-built dashboard
 
 Import `coralogix-dashboard.json` for an instant view of all signals.
