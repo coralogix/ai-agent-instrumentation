@@ -181,13 +181,6 @@ Alternatively, use Claude Code's own [settings file](https://docs.anthropic.com/
 
 ## Repo-tracker hook (macOS only)
 
-The optional `PostToolUse` repo-tracker hook (`hooks/claude.py`, staged fleet-wide via `deploy-jamf.sh` or `deploy-jumpcloud.sh`) is a Python script. Windows has two problems with registering it directly:
-
-- Claude Code does not propagate the `env` block from settings to hooks on Windows ([claude-code#20112](https://github.com/anthropics/claude-code/issues/20112)), so the hook can never resolve its Coralogix API key there.
-- `python3` may not even be on `PATH` on a Windows dev machine.
-
-Rather than let the hook fail (or configure it per-OS), register it in Managed Settings behind a small Node.js guard that only runs the Python hook on macOS and is a silent no-op everywhere else. Below is a full example Managed Settings payload — env values redacted, replace with your own (see [Setup](#setup) above):
-
 ```json
 {
   "availableModels": [
@@ -227,8 +220,6 @@ Rather than let the hook fail (or configure it per-OS), register it in Managed S
   }
 }
 ```
-
-Node ships with Claude Code's own runtime requirements on every platform, so this command always exists — it just chooses to do nothing on Windows and Linux. Only the `hooks.PostToolUse[0].hooks[0].command` value changed from the plain `python3 /usr/local/bin/claude.py` — everything else in `env` is your existing telemetry config.
 
 ---
 
