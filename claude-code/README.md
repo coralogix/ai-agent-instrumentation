@@ -186,18 +186,40 @@ The optional `PostToolUse` repo-tracker hook (`hooks/claude.py`, staged fleet-wi
 - Claude Code does not propagate the `env` block from settings to hooks on Windows ([claude-code#20112](https://github.com/anthropics/claude-code/issues/20112)), so the hook can never resolve its Coralogix API key there.
 - `python3` may not even be on `PATH` on a Windows dev machine.
 
-Rather than let the hook fail (or configure it per-OS), register it in Managed Settings behind a small Node.js guard that only runs the Python hook on macOS and is a silent no-op everywhere else:
+Rather than let the hook fail (or configure it per-OS), register it in Managed Settings behind a small Node.js guard that only runs the Python hook on macOS and is a silent no-op everywhere else. Below is a full example Managed Settings payload — env values redacted, replace with your own (see [Setup](#setup) above):
 
 ```json
 {
+  "availableModels": [
+    "sonnet",
+    "haiku",
+    "opus",
+    "fable-5"
+  ],
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "CX_HOOK_API_KEY": "<YOUR_CX_API_KEY>",
+    "CX_HOOK_APPLICATION_NAME": "claude-code",
+    "CX_HOOK_SUBSYSTEM_NAME": "<YOUR_SUBSYSTEM_NAME>",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "<YOUR_CX_OTLP_ENDPOINT>",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer <YOUR_CX_API_KEY>",
+    "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "delta",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORT_INTERVAL": "1000",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_METRIC_EXPORT_INTERVAL": "1000",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>",
+    "OTEL_TRACES_EXPORT_INTERVAL": "1000"
+  },
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "*",
         "hooks": [
           {
-            "type": "command",
-            "command": "node -e \"if(process.platform==='darwin'){const r=require('child_process').spawnSync('python3',['/usr/local/bin/claude.py'],{stdio:'inherit'});process.exit(r.status||0)}\""
+            "command": "node -e \"if(process.platform==='darwin'){const r=require('child_process').spawnSync('python3',['/usr/local/bin/claude.py'],{stdio:'inherit'});process.exit(r.status||0)}\"",
+            "type": "command"
           }
         ]
       }
@@ -206,7 +228,7 @@ Rather than let the hook fail (or configure it per-OS), register it in Managed S
 }
 ```
 
-Node ships with Claude Code's own runtime requirements on every platform, so this command always exists — it just chooses to do nothing on Windows and Linux.
+Node ships with Claude Code's own runtime requirements on every platform, so this command always exists — it just chooses to do nothing on Windows and Linux. Only the `hooks.PostToolUse[0].hooks[0].command` value changed from the plain `python3 /usr/local/bin/claude.py` — everything else in `env` is your existing telemetry config.
 
 ---
 
