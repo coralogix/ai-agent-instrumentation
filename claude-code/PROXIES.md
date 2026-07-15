@@ -133,11 +133,13 @@ Two caveats that follow from "sources don't merge":
 ## How cost data reaches Coralogix
 
 ```mermaid
-flowchart LR
-    A["User types in Claude client<br/>(CLI or Desktop)"] --> B["Prompt sent to<br/>Claude servers<br/>(directly, or via the proxy)"]
-    B --> C["Response returns<br/>(via third party or directly,<br/>depending on setup)<br/>with token usage counts"]
-    C --> D["Client calculates cost:<br/>tokens × price table<br/>embedded in the client"]
-    D --> E["Client exports metrics<br/>via OTLP to Coralogix"]
+flowchart TD
+    A["1 — User types a prompt in the Claude client (CLI / Desktop)"]
+    B["2 — Prompt sent to Claude servers — directly, or through the proxy/gateway"]
+    C["3 — Response returns with token usage counts"]
+    D["4 — Client computes cost locally: tokens × embedded price table"]
+    E["5 — Client exports metrics to Coralogix via OTLP"]
+    A --> B --> C --> D --> E
 ```
 
 The critical detail: **cost is calculated on the user's machine**, by the Claude Code client itself. Anthropic's servers report only *token counts* in each response; the client multiplies them by a **price list embedded in the client binary** and exports the result (`claude_code.cost.usage`, `claude_code.token.usage`) to Coralogix.
