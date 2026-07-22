@@ -71,11 +71,37 @@ Then run:
 
 ### MDM / automated deployment
 
-Inject credentials via environment variables from your secrets manager:
+`install.sh` is **self-contained** — the hook is embedded in it, so you can paste
+it straight into an MDM command runner (JumpCloud, Jamf, Intune, Ansible) with no
+repo alongside it. MDMs run commands as **root** in a bare environment (no `$HOME`);
+the script detects the logged-in **console user** and installs into *their*
+`~/.cursor`, then hands ownership back to them.
+
+Because a pasted MDM command takes no CLI flags, there's a **fill-in block at the
+top of `install.sh`** — set your values there and they're baked into the hook's env
+file, which is sourced/exported on every hook run:
+
+```bash
+CFG_API_KEY="cxtp_..."                              # REQUIRED
+CFG_ENDPOINT="https://ingress.eu2.coralogix.com"    # your region
+CFG_APPLICATION="cursor"
+CFG_SUBSYSTEM="ai-agent"
+# ...mask/omit/debug/target-user also available
+```
+
+Prefer a secrets manager? Inject the credentials as environment variables instead —
+they override the block:
 
 ```bash
 CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
 ```
+
+Override the target user (e.g. headless provisioning) with `--target-user <name>`,
+`TARGET_USER=<name>`, or `CFG_TARGET_USER` in the block.
+
+> **Maintainers:** the embedded hook is generated from `extension/resources/hook.py`
+> by `./build-installer.sh`. Re-run it (and commit `install.sh`) whenever you change
+> the hook; `./build-installer.sh --check` fails CI if they drift.
 
 ### All options
 
@@ -89,6 +115,8 @@ CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
   --omit-pre-tool-use        # optional, skip preToolUse spans
   --debug                    # optional, print span IDs to stderr
   --env-file      <path>     # optional, load credentials from a .env file
+  --hook-source   <path>     # optional, use an on-disk hook.py instead of the embedded one
+  --target-user   <name>     # optional, install for this user (default: console user when run as root)
 ```
 
 ### Uninstall
