@@ -26,8 +26,20 @@ try:
 except ImportError:
     try:
         import msvcrt as _msvcrt
-        def _lock(f):   _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
-        def _unlock(f): _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+        # msvcrt.locking(LK_LOCK) raises OSError if it can't acquire the lock
+        # after 10 one-second retries (unlike fcntl.flock, which blocks
+        # indefinitely). Swallow that so lock contention degrades to a race
+        # instead of crashing the hook.
+        def _lock(f):
+            try:
+                _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
+            except OSError:
+                pass
+        def _unlock(f):
+            try:
+                _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
     except ImportError:
         def _lock(_):   pass
         def _unlock(_): pass

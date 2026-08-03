@@ -23,6 +23,8 @@ extension/resources/hook.py         (Python: stdin → OTLP protobuf span → PO
 Coralogix OTLP endpoint
 ```
 
+On Windows the wrapper is `coralogix_hook.cmd` → `coralogix_hook.ps1` (the `.cmd` shim is what Cursor can reliably execute); it loads the same credentials and runs the same `hook.py`.
+
 All spans within a session share the same `traceId`, with `cursor.sessionStart` as the root span. A full agent run appears as a single trace in Coralogix Visual Explorer.
 
 ---
@@ -31,14 +33,14 @@ All spans within a session share the same `traceId`, with `cursor.sessionStart` 
 
 | | Audience | How |
 |---|---|---|
-| **Install script** (`install.sh`) | Individual install or org-wide using MDM | CLI flags, env vars, or a `.env` file |
+| **Install script** (`install.sh` on macOS/Linux, `install.ps1` on Windows) | Individual install or org-wide using MDM | CLI flags, env vars, or a `.env` file |
 | **Extension** (`.vsix`) | Individual / GUI | Install in Cursor, enter credentials in Settings UI |
 
 ---
 
 ## Option 1 — Install script
 
-Works for both local setup and org-wide MDM deployment (Jamf, Intune, Ansible, etc.).
+Works for both local setup and org-wide MDM deployment (Jamf, Intune, Ansible, etc.). Use `install.sh` on macOS and Linux, `install.ps1` on Windows — both take the same options and write the same configuration.
 
 ### Local setup with a .env file
 
@@ -98,6 +100,49 @@ CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
 ```
 
 The script is idempotent — safe to re-run on every provisioning cycle.
+
+### Windows
+
+Requires Python 3.8+ reachable as `python`, `py -3`, or `python3`. Windows PowerShell 5.1 (preinstalled on Windows 10/11) is enough — no `pwsh` needed.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -EnvFile .env
+```
+
+With flags instead of a `.env` file:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -ApiKey <key> -Endpoint https://ingress.eu2.coralogix.com
+```
+
+The full set mirrors `install.sh`:
+
+| Flag | Notes |
+|---|---|
+| `-ApiKey <key>` | required (or `CX_API_KEY` env var) |
+| `-Endpoint <url>` | default: `https://ingress.eu2.coralogix.com` |
+| `-Application <name>` | default: `cursor` |
+| `-Subsystem <name>` | default: `ai-agent` |
+| `-MaskPrompts` | replace prompts with `[MASKED]` |
+| `-OmitPreToolUse` | skip `preToolUse` spans |
+| `-OtlpDebug` | print span IDs to stderr |
+| `-EnvFile <path>` | load credentials from a `.env` file |
+| `-HookSource <path>` | path to `hook.py` |
+
+For MDM deployment (Intune, SCCM, PDQ), inject credentials as environment variables:
+
+```powershell
+$env:CX_API_KEY = 'xxx'; $env:CX_OTLP_ENDPOINT = 'xxx'
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+Uninstall:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
+```
+
+Files land in `%USERPROFILE%\.cursor\hooks\` and the hook is registered in `%USERPROFILE%\.cursor\hooks.json`.
 
 **OTLP ingress by region:**
 
