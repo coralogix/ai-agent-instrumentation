@@ -18,6 +18,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 try:
     import fcntl as _fcntl
@@ -26,10 +27,8 @@ try:
 except ImportError:
     try:
         import msvcrt as _msvcrt
-        # msvcrt.locking(LK_LOCK) raises OSError if it can't acquire the lock
-        # after 10 one-second retries (unlike fcntl.flock, which blocks
-        # indefinitely). Swallow that so lock contention degrades to a race
-        # instead of crashing the hook.
+        # msvcrt.locking raises OSError after ~10s of retries instead of blocking
+        # like fcntl.flock; swallow it so lock contention degrades to a race, not a crash.
         def _lock(f):
             try:
                 _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
@@ -68,6 +67,20 @@ CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "ai-agent")
 MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "").lower() == "true"
 OMIT_PRE_TOOL_USE   = os.environ.get("CURSOR_OMIT_PRE_TOOL_USE_SPANS", "").lower() == "true"
 DEBUG               = os.environ.get("CX_OTLP_DEBUG", "").lower() == "true"
+
+# http:// is only safe for a local collector; anything else leaks the Bearer API key in cleartext.
+if CX_OTLP_ENDPOINT:
+    _endpoint_url = urlparse(CX_OTLP_ENDPOINT)
+    if _endpoint_url.scheme != "https" and not (
+        _endpoint_url.scheme == "http" and _endpoint_url.hostname in ("localhost", "127.0.0.1", "::1")
+    ):
+        print(
+            "cursor-coralogix-hook: refusing non-https endpoint {} — API key would be sent in cleartext".format(
+                CX_OTLP_ENDPOINT
+            ),
+            file=sys.stderr,
+        )
+        sys.exit(0)
 
 _SERVICE_VERSION = "2.0.0"
 
