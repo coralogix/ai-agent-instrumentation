@@ -115,7 +115,7 @@ With flags instead of a `.env` file:
 powershell -ExecutionPolicy Bypass -File install.ps1 -ApiKey <key> -Endpoint https://ingress.eu2.coralogix.com
 ```
 
-The full set mirrors `install.sh`:
+All options:
 
 | Flag | Notes |
 |---|---|

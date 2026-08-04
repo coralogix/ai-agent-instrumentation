@@ -3,8 +3,8 @@
 # Deploys the Coralogix telemetry hook for Cursor to a single user account.
 # Designed to be run by an MDM (Intune, SCCM, PDQ, etc.) during provisioning.
 #
-# Windows counterpart of install.sh. Targets Windows PowerShell 5.1 (ships with
-# every Windows 10/11) and works unchanged on pwsh 7.
+# Targets Windows PowerShell 5.1 (ships with every Windows 10/11) and works
+# unchanged on pwsh 7.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -ApiKey <key> [options]
@@ -81,7 +81,7 @@ if ($OmitPreToolUse) { $cxOmitPre = 'true' }
 if ($OtlpDebug)      { $cxDebug = 'true' }
 
 # ---------------------------------------------------------------------------
-# Load .env file if provided (same format as install.sh reads)
+# Load .env file if provided
 # ---------------------------------------------------------------------------
 
 if ($EnvFile) {
@@ -176,7 +176,7 @@ function Invoke-PythonScript([string]$Script, [string[]]$ScriptArgs) {
 }
 
 # ---------------------------------------------------------------------------
-# Embedded Python: hooks.json merge / removal (mirrors install.sh)
+# Embedded Python: hooks.json merge / removal
 # ---------------------------------------------------------------------------
 
 $MergeScript = @'
