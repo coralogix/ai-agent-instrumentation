@@ -53,7 +53,7 @@ function isInstalled(): boolean {
 function buildEnvContent(apiKey: string, cfg: vscode.WorkspaceConfiguration): string {
   const lines = [
     `CX_API_KEY=${apiKey}`,
-    `CX_OTLP_ENDPOINT=${cfg.get<string>('otlpEndpoint', 'https://ingress.eu2.coralogix.com')}`,
+    `CX_OTLP_ENDPOINT=${cfg.get<string>('otlpEndpoint', '')}`,
     `CX_APPLICATION_NAME=${cfg.get<string>('applicationName', 'cursor')}`,
     `CX_SUBSYSTEM_NAME=${cfg.get<string>('subsystemName', 'ai-agent')}`,
     `CURSOR_MASK_PROMPTS=${cfg.get<boolean>('maskPrompts', false)}`,

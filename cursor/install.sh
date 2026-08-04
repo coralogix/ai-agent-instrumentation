@@ -12,7 +12,7 @@
 #
 # Options:
 #   --api-key       KEY    CX_API_KEY          (required unless --env-file is used)
-#   --endpoint      URL    CX_OTLP_ENDPOINT    (default: https://ingress.eu2.coralogix.com)
+#   --endpoint      URL    CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   --application   NAME   CX_APPLICATION_NAME (default: cursor)
 #   --subsystem     NAME   CX_SUBSYSTEM_NAME   (default: ai-agent)
 #   --mask-prompts         CURSOR_MASK_PROMPTS (default: false)
@@ -29,7 +29,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 API_KEY="${CX_API_KEY:-}"
-ENDPOINT="${CX_OTLP_ENDPOINT:-https://ingress.eu2.coralogix.com}"
+ENDPOINT="${CX_OTLP_ENDPOINT:-}"
 APPLICATION="${CX_APPLICATION_NAME:-cursor}"
 SUBSYSTEM="${CX_SUBSYSTEM_NAME:-ai-agent}"
 MASK_PROMPTS="${CURSOR_MASK_PROMPTS:-false}"
@@ -132,6 +132,17 @@ fi
 
 if [[ -z "$API_KEY" ]]; then
   echo "Error: --api-key or CX_API_KEY is required." >&2
+  exit 1
+fi
+
+if [[ -z "$ENDPOINT" ]]; then
+  echo "Error: --endpoint or CX_OTLP_ENDPOINT is required (your region's OTLP ingress, e.g. https://ingress.<domain>)." >&2
+  exit 1
+fi
+
+# Reject non-https endpoints, except local OTLP collectors (http://localhost / 127.0.0.1).
+if [[ "$ENDPOINT" != https://* && "$ENDPOINT" != http://localhost* && "$ENDPOINT" != http://127.0.0.1* ]]; then
+  echo "Error: --endpoint must start with https:// (or http://localhost / http://127.0.0.1 for a local collector)." >&2
   exit 1
 fi
 

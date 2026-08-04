@@ -14,7 +14,7 @@
 #
 # Options:
 #   -ApiKey          KEY   CX_API_KEY          (required unless -EnvFile is used)
-#   -Endpoint        URL   CX_OTLP_ENDPOINT    (default: https://ingress.eu2.coralogix.com)
+#   -Endpoint        URL   CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   -Application     NAME  CX_APPLICATION_NAME (default: cursor)
 #   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (default: ai-agent)
 #   -MaskPrompts           CURSOR_MASK_PROMPTS (default: false)
@@ -65,7 +65,7 @@ function Get-Default([string]$EnvName, [string]$Fallback) {
 }
 
 $cxApiKey      = Get-Default 'CX_API_KEY' ''
-$cxEndpoint    = Get-Default 'CX_OTLP_ENDPOINT' 'https://ingress.eu2.coralogix.com'
+$cxEndpoint    = Get-Default 'CX_OTLP_ENDPOINT' ''
 $cxApplication = Get-Default 'CX_APPLICATION_NAME' 'cursor'
 $cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' 'ai-agent'
 $cxMask        = Get-Default 'CURSOR_MASK_PROMPTS' 'false'
@@ -257,6 +257,17 @@ if ($Uninstall) {
 
 if (-not $cxApiKey) {
     Write-Err "Error: -ApiKey or CX_API_KEY is required."
+    exit 1
+}
+
+if (-not $cxEndpoint) {
+    Write-Err "Error: -Endpoint or CX_OTLP_ENDPOINT is required (your region's OTLP ingress, e.g. https://ingress.<domain>)."
+    exit 1
+}
+
+# Reject non-https endpoints, except local OTLP collectors (http://localhost / 127.0.0.1).
+if ($cxEndpoint -notmatch '^https://' -and $cxEndpoint -notmatch '^http://(localhost|127\.0\.0\.1)') {
+    Write-Err "Error: -Endpoint must start with https:// (or http://localhost / http://127.0.0.1 for a local collector)."
     exit 1
 }
 

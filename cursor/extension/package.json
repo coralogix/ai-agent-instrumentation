@@ -36,8 +36,8 @@
       "properties": {
         "cursorCoralogix.otlpEndpoint": {
           "type": "string",
-          "default": "https://ingress.eu2.coralogix.com",
-          "description": "Coralogix OTLP ingress endpoint for your region.",
+          "default": "",
+          "description": "Coralogix OTLP ingress endpoint for your region. Required — select the endpoint matching your tenant's region.",
           "enum": [
             "https://ingress.us1.coralogix.com",
             "https://ingress.us2.coralogix.com",

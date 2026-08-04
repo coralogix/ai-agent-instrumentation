@@ -48,7 +48,7 @@ Create a `.env` file with your credentials:
 
 ```
 CX_API_KEY=<your-send-your-data-api-key>
-CX_OTLP_ENDPOINT=https://ingress.eu2.coralogix.com
+CX_OTLP_ENDPOINT=https://ingress.<your-region>.coralogix.com  # see region table below
 CX_APPLICATION_NAME=cursor
 CX_SUBSYSTEM_NAME=ai-agent
 
@@ -79,12 +79,14 @@ Inject credentials via environment variables from your secrets manager:
 CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
 ```
 
+The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the MDM must run the installer in the target user's context (e.g. an Intune user-context assignment, a Jamf login policy) — not as SYSTEM/root against the machine.
+
 ### All options
 
 ```bash
 ./install.sh \
   --api-key       <key>      # required (or CX_API_KEY env var)
-  --endpoint      <url>      # optional, default: https://ingress.eu2.coralogix.com
+  --endpoint      <url>      # required — your region's OTLP ingress (see table below)
   --application   <name>     # optional, default: cursor
   --subsystem     <name>     # optional, default: ai-agent
   --mask-prompts             # optional, replace prompts with [MASKED]
@@ -120,7 +122,7 @@ All options:
 | Flag | Notes |
 |---|---|
 | `-ApiKey <key>` | required (or `CX_API_KEY` env var) |
-| `-Endpoint <url>` | default: `https://ingress.eu2.coralogix.com` |
+| `-Endpoint <url>` | required — your region's OTLP ingress (see table below) |
 | `-Application <name>` | default: `cursor` |
 | `-Subsystem <name>` | default: `ai-agent` |
 | `-MaskPrompts` | replace prompts with `[MASKED]` |
