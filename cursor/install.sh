@@ -13,8 +13,8 @@
 # Options:
 #   --api-key       KEY    CX_API_KEY          (required unless --env-file is used)
 #   --endpoint      URL    CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
-#   --application   NAME   CX_APPLICATION_NAME (default: cursor)
-#   --subsystem     NAME   CX_SUBSYSTEM_NAME   (default: cursor-sessions)
+#   --application   NAME   CX_APPLICATION_NAME (required; conventional: cursor)
+#   --subsystem     NAME   CX_SUBSYSTEM_NAME   (required; conventional: cursor-sessions)
 #   --mask-prompts         CURSOR_MASK_PROMPTS (default: true)
 #   --no-mask-prompts      Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
 #   --omit-pre-tool-use    CURSOR_OMIT_PRE_TOOL_USE_SPANS (default: false)
@@ -31,8 +31,8 @@ set -euo pipefail
 
 API_KEY="${CX_API_KEY:-}"
 ENDPOINT="${CX_OTLP_ENDPOINT:-}"
-APPLICATION="${CX_APPLICATION_NAME:-cursor}"
-SUBSYSTEM="${CX_SUBSYSTEM_NAME:-cursor-sessions}"
+APPLICATION="${CX_APPLICATION_NAME:-}"
+SUBSYSTEM="${CX_SUBSYSTEM_NAME:-}"
 MASK_PROMPTS="${CURSOR_MASK_PROMPTS:-true}"
 OMIT_PRE_TOOL_USE="${CURSOR_OMIT_PRE_TOOL_USE_SPANS:-false}"
 DEBUG="${CX_OTLP_DEBUG:-false}"
@@ -139,6 +139,16 @@ fi
 
 if [[ -z "$ENDPOINT" ]]; then
   echo "Error: --endpoint or CX_OTLP_ENDPOINT is required (your region's OTLP ingress, e.g. https://ingress.<domain>)." >&2
+  exit 1
+fi
+
+if [[ -z "$APPLICATION" ]]; then
+  echo "Error: --application or CX_APPLICATION_NAME is required (conventional: cursor)." >&2
+  exit 1
+fi
+
+if [[ -z "$SUBSYSTEM" ]]; then
+  echo "Error: --subsystem or CX_SUBSYSTEM_NAME is required (conventional: cursor-sessions)." >&2
   exit 1
 fi
 

@@ -8,8 +8,8 @@
 # Required env vars:
 #   CX_API_KEY          - Coralogix Send-Your-Data API key
 #   CX_OTLP_ENDPOINT    - e.g. https://ingress.eu2.coralogix.com
-#   CX_APPLICATION_NAME - e.g. cursor  (default: cursor)
-#   CX_SUBSYSTEM_NAME   - e.g. cursor-sessions (default: cursor-sessions)
+#   CX_APPLICATION_NAME - e.g. cursor
+#   CX_SUBSYSTEM_NAME   - e.g. cursor-sessions
 
 import contextlib
 import hashlib
@@ -62,8 +62,8 @@ except ImportError:
 
 CX_API_KEY          = os.environ.get("CX_API_KEY", "")
 CX_OTLP_ENDPOINT    = os.environ.get("CX_OTLP_ENDPOINT", "").rstrip("/")
-CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "cursor")
-CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "cursor-sessions")
+CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "")
+CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "")
 # Masked by default; only the literal "false" opts out.
 MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "true").lower() != "false"
 OMIT_PRE_TOOL_USE   = os.environ.get("CURSOR_OMIT_PRE_TOOL_USE_SPANS", "").lower() == "true"
@@ -464,13 +464,16 @@ def _emit_span_inner(event, hook_name, state):
         "telemetry.sdk.name": "cursor-coralogix-hook",
     })
 
+    headers = {"Authorization": "Bearer " + CX_API_KEY}
+    # Stamped only when explicitly configured — no code default to fall back to.
+    if CX_APPLICATION_NAME:
+        headers["CX-Application-Name"] = CX_APPLICATION_NAME
+    if CX_SUBSYSTEM_NAME:
+        headers["CX-Subsystem-Name"] = CX_SUBSYSTEM_NAME
+
     exporter = OTLPSpanExporter(
         endpoint=CX_OTLP_ENDPOINT + "/v1/traces",
-        headers={
-            "Authorization":       "Bearer " + CX_API_KEY,
-            "CX-Application-Name": CX_APPLICATION_NAME,
-            "CX-Subsystem-Name":   CX_SUBSYSTEM_NAME,
-        },
+        headers=headers,
     )
 
     provider = TracerProvider(resource=resource)

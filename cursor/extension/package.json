@@ -50,13 +50,13 @@
         },
         "cursorCoralogix.applicationName": {
           "type": "string",
-          "default": "cursor",
-          "description": "Coralogix application name tag (CX-Application-Name header)."
+          "default": "",
+          "description": "Coralogix application name tag (CX-Application-Name header). Required — conventional value: cursor."
         },
         "cursorCoralogix.subsystemName": {
           "type": "string",
-          "default": "cursor-sessions",
-          "description": "Coralogix subsystem name tag (CX-Subsystem-Name header)."
+          "default": "",
+          "description": "Coralogix subsystem name tag (CX-Subsystem-Name header). Required — conventional value: cursor-sessions."
         },
         "cursorCoralogix.maskPrompts": {
           "type": "boolean",

@@ -54,8 +54,8 @@ function buildEnvContent(apiKey: string, cfg: vscode.WorkspaceConfiguration): st
   const lines = [
     `CX_API_KEY=${apiKey}`,
     `CX_OTLP_ENDPOINT=${cfg.get<string>('otlpEndpoint', '')}`,
-    `CX_APPLICATION_NAME=${cfg.get<string>('applicationName', 'cursor')}`,
-    `CX_SUBSYSTEM_NAME=${cfg.get<string>('subsystemName', 'cursor-sessions')}`,
+    `CX_APPLICATION_NAME=${cfg.get<string>('applicationName', '')}`,
+    `CX_SUBSYSTEM_NAME=${cfg.get<string>('subsystemName', '')}`,
     `CURSOR_MASK_PROMPTS=${cfg.get<boolean>('maskPrompts', true)}`,
     `CURSOR_OMIT_PRE_TOOL_USE_SPANS=${cfg.get<boolean>('omitPreToolUseSpans', false)}`,
     `CX_OTLP_DEBUG=${cfg.get<boolean>('debug', false)}`,
@@ -245,6 +245,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('cursorCoralogix.setup', async () => {
       const cfg = vscode.workspace.getConfiguration('cursorCoralogix');
       const endpoint = cfg.get<string>('otlpEndpoint', '');
+      const applicationName = cfg.get<string>('applicationName', '');
+      const subsystemName = cfg.get<string>('subsystemName', '');
 
       // Retrieve stored key or prompt the user (masked input)
       let apiKey = await context.secrets.get(SECRET_KEY) ?? '';
@@ -263,6 +265,28 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!endpoint) {
         const action = await vscode.window.showErrorMessage(
           'Set cursorCoralogix.otlpEndpoint in Settings before running setup.',
+          'Open Settings'
+        );
+        if (action === 'Open Settings') {
+          vscode.commands.executeCommand('workbench.action.openSettings', 'cursorCoralogix');
+        }
+        return;
+      }
+
+      if (!applicationName) {
+        const action = await vscode.window.showErrorMessage(
+          'Set cursorCoralogix.applicationName in Settings before running setup (conventional value: cursor).',
+          'Open Settings'
+        );
+        if (action === 'Open Settings') {
+          vscode.commands.executeCommand('workbench.action.openSettings', 'cursorCoralogix');
+        }
+        return;
+      }
+
+      if (!subsystemName) {
+        const action = await vscode.window.showErrorMessage(
+          'Set cursorCoralogix.subsystemName in Settings before running setup (conventional value: cursor-sessions).',
           'Open Settings'
         );
         if (action === 'Open Settings') {

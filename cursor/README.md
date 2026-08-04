@@ -76,7 +76,7 @@ Then run:
 Inject credentials via environment variables from your secrets manager:
 
 ```bash
-CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
+CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx CX_APPLICATION_NAME=cursor CX_SUBSYSTEM_NAME=cursor-sessions ./install.sh
 ```
 
 The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the MDM must run the installer in the target user's context (e.g. an Intune user-context assignment, a Jamf login policy) — not as SYSTEM/root against the machine.
@@ -87,8 +87,8 @@ The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the M
 ./install.sh \
   --api-key       <key>      # required (or CX_API_KEY env var)
   --endpoint      <url>      # required — your region's OTLP ingress (see table below)
-  --application   <name>     # optional, default: cursor
-  --subsystem     <name>     # optional, default: cursor-sessions
+  --application   <name>     # required (conventional: cursor)
+  --subsystem     <name>     # required (conventional: cursor-sessions)
   --mask-prompts             # optional, replace prompts with [MASKED] (default)
   --no-mask-prompts          # optional, send full prompt/response text
   --omit-pre-tool-use        # optional, skip preToolUse spans
@@ -124,8 +124,8 @@ All options:
 |---|---|
 | `-ApiKey <key>` | required (or `CX_API_KEY` env var) |
 | `-Endpoint <url>` | required — your region's OTLP ingress (see table below) |
-| `-Application <name>` | default: `cursor` |
-| `-Subsystem <name>` | default: `cursor-sessions` |
+| `-Application <name>` | required (conventional: `cursor`) |
+| `-Subsystem <name>` | required (conventional: `cursor-sessions`) |
 | `-MaskPrompts` | replace prompts with `[MASKED]` (default) |
 | `-NoMaskPrompts` | send full prompt/response text |
 | `-OmitPreToolUse` | skip `preToolUse` spans |
@@ -136,7 +136,7 @@ All options:
 For MDM deployment (Intune, SCCM, PDQ), inject credentials as environment variables:
 
 ```powershell
-$env:CX_API_KEY = 'xxx'; $env:CX_OTLP_ENDPOINT = 'xxx'
+$env:CX_API_KEY = 'xxx'; $env:CX_OTLP_ENDPOINT = 'xxx'; $env:CX_APPLICATION_NAME = 'cursor'; $env:CX_SUBSYSTEM_NAME = 'cursor-sessions'
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 

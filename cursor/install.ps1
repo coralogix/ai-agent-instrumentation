@@ -15,8 +15,8 @@
 # Options:
 #   -ApiKey          KEY   CX_API_KEY          (required unless -EnvFile is used)
 #   -Endpoint        URL   CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
-#   -Application     NAME  CX_APPLICATION_NAME (default: cursor)
-#   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (default: cursor-sessions)
+#   -Application     NAME  CX_APPLICATION_NAME (required; conventional: cursor)
+#   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (required; conventional: cursor-sessions)
 #   -MaskPrompts           CURSOR_MASK_PROMPTS (default: true)
 #   -NoMaskPrompts         Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
 #                          Wins if both -MaskPrompts and -NoMaskPrompts are passed.
@@ -69,8 +69,8 @@ function Get-Default([string]$EnvName, [string]$Fallback) {
 
 $cxApiKey      = Get-Default 'CX_API_KEY' ''
 $cxEndpoint    = Get-Default 'CX_OTLP_ENDPOINT' ''
-$cxApplication = Get-Default 'CX_APPLICATION_NAME' 'cursor'
-$cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' 'cursor-sessions'
+$cxApplication = Get-Default 'CX_APPLICATION_NAME' ''
+$cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' ''
 $cxMask        = Get-Default 'CURSOR_MASK_PROMPTS' 'true'
 $cxOmitPre     = Get-Default 'CURSOR_OMIT_PRE_TOOL_USE_SPANS' 'false'
 $cxDebug       = Get-Default 'CX_OTLP_DEBUG' 'false'
@@ -272,6 +272,16 @@ if (-not $cxEndpoint) {
 # Reject non-https endpoints, except local OTLP collectors (http://localhost / 127.0.0.1).
 if ($cxEndpoint -notmatch '^https://' -and $cxEndpoint -notmatch '^http://(localhost|127\.0\.0\.1)') {
     Write-Err "Error: -Endpoint must start with https:// (or http://localhost / http://127.0.0.1 for a local collector)."
+    exit 1
+}
+
+if (-not $cxApplication) {
+    Write-Err "Error: -Application or CX_APPLICATION_NAME is required (conventional: cursor)."
+    exit 1
+}
+
+if (-not $cxSubsystem) {
+    Write-Err "Error: -Subsystem or CX_SUBSYSTEM_NAME is required (conventional: cursor-sessions)."
     exit 1
 }
 
