@@ -15,7 +15,8 @@
 #   --endpoint      URL    CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   --application   NAME   CX_APPLICATION_NAME (default: cursor)
 #   --subsystem     NAME   CX_SUBSYSTEM_NAME   (default: ai-agent)
-#   --mask-prompts         CURSOR_MASK_PROMPTS (default: false)
+#   --mask-prompts         CURSOR_MASK_PROMPTS (default: true)
+#   --no-mask-prompts      Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
 #   --omit-pre-tool-use    CURSOR_OMIT_PRE_TOOL_USE_SPANS (default: false)
 #   --debug                CX_OTLP_DEBUG       (default: false)
 #   --env-file      PATH   Load credentials from a .env file (local use)
@@ -32,7 +33,7 @@ API_KEY="${CX_API_KEY:-}"
 ENDPOINT="${CX_OTLP_ENDPOINT:-}"
 APPLICATION="${CX_APPLICATION_NAME:-cursor}"
 SUBSYSTEM="${CX_SUBSYSTEM_NAME:-ai-agent}"
-MASK_PROMPTS="${CURSOR_MASK_PROMPTS:-false}"
+MASK_PROMPTS="${CURSOR_MASK_PROMPTS:-true}"
 OMIT_PRE_TOOL_USE="${CURSOR_OMIT_PRE_TOOL_USE_SPANS:-false}"
 DEBUG="${CX_OTLP_DEBUG:-false}"
 HOOK_SOURCE=""
@@ -49,7 +50,8 @@ while [[ $# -gt 0 ]]; do
     --endpoint)          ENDPOINT="$2";      shift 2 ;;
     --application)       APPLICATION="$2";   shift 2 ;;
     --subsystem)         SUBSYSTEM="$2";     shift 2 ;;
-    --mask-prompts)      MASK_PROMPTS="true"; shift ;;
+    --mask-prompts)      MASK_PROMPTS="true";  shift ;;
+    --no-mask-prompts)   MASK_PROMPTS="false"; shift ;;
     --omit-pre-tool-use) OMIT_PRE_TOOL_USE="true"; shift ;;
     --debug)             DEBUG="true";       shift ;;
     --hook-source)       HOOK_SOURCE="$2";   shift 2 ;;

@@ -56,7 +56,7 @@ function buildEnvContent(apiKey: string, cfg: vscode.WorkspaceConfiguration): st
     `CX_OTLP_ENDPOINT=${cfg.get<string>('otlpEndpoint', '')}`,
     `CX_APPLICATION_NAME=${cfg.get<string>('applicationName', 'cursor')}`,
     `CX_SUBSYSTEM_NAME=${cfg.get<string>('subsystemName', 'ai-agent')}`,
-    `CURSOR_MASK_PROMPTS=${cfg.get<boolean>('maskPrompts', false)}`,
+    `CURSOR_MASK_PROMPTS=${cfg.get<boolean>('maskPrompts', true)}`,
     `CURSOR_OMIT_PRE_TOOL_USE_SPANS=${cfg.get<boolean>('omitPreToolUseSpans', false)}`,
     `CX_OTLP_DEBUG=${cfg.get<boolean>('debug', false)}`,
   ];

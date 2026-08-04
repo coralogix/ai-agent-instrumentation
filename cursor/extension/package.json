@@ -60,8 +60,8 @@
         },
         "cursorCoralogix.maskPrompts": {
           "type": "boolean",
-          "default": false,
-          "description": "Replace all prompt and response text with [MASKED] before sending to Coralogix."
+          "default": true,
+          "description": "Masked by default. Replace all prompt and response text with [MASKED] before sending to Coralogix; disable to send full text."
         },
         "cursorCoralogix.omitPreToolUseSpans": {
           "type": "boolean",

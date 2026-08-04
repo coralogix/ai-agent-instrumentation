@@ -53,8 +53,8 @@ CX_APPLICATION_NAME=cursor
 CX_SUBSYSTEM_NAME=ai-agent
 
 # Optional
-# Set to true to replace all prompt and response text with [MASKED] before sending to Coralogix
-CURSOR_MASK_PROMPTS=false
+# Masked by default. Set to false to send full prompt and response text to Coralogix.
+CURSOR_MASK_PROMPTS=true
 CURSOR_OMIT_PRE_TOOL_USE_SPANS=false
 CX_OTLP_DEBUG=false
 ```
@@ -89,7 +89,8 @@ The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the M
   --endpoint      <url>      # required — your region's OTLP ingress (see table below)
   --application   <name>     # optional, default: cursor
   --subsystem     <name>     # optional, default: ai-agent
-  --mask-prompts             # optional, replace prompts with [MASKED]
+  --mask-prompts             # optional, replace prompts with [MASKED] (default)
+  --no-mask-prompts          # optional, send full prompt/response text
   --omit-pre-tool-use        # optional, skip preToolUse spans
   --debug                    # optional, print span IDs to stderr
   --env-file      <path>     # optional, load credentials from a .env file
@@ -125,7 +126,8 @@ All options:
 | `-Endpoint <url>` | required — your region's OTLP ingress (see table below) |
 | `-Application <name>` | default: `cursor` |
 | `-Subsystem <name>` | default: `ai-agent` |
-| `-MaskPrompts` | replace prompts with `[MASKED]` |
+| `-MaskPrompts` | replace prompts with `[MASKED]` (default) |
+| `-NoMaskPrompts` | send full prompt/response text |
 | `-OmitPreToolUse` | skip `preToolUse` spans |
 | `-OtlpDebug` | print span IDs to stderr |
 | `-EnvFile <path>` | load credentials from a `.env` file |
@@ -190,7 +192,7 @@ Each Cursor hook event becomes one OTLP trace span.
 | Event | Span name | Key attributes |
 |---|---|---|
 | `sessionStart` / `sessionEnd` | `cursor.sessionStart/End` | `gen_ai.request.model`, `cursor.user_email`, `cursor.cursor_version` |
-| `beforeSubmitPrompt` | `cursor.beforeSubmitPrompt` | `cursor.prompt` (opt-out with `CURSOR_MASK_PROMPTS=true`), `gen_ai.request.model` |
+| `beforeSubmitPrompt` | `cursor.beforeSubmitPrompt` | `cursor.prompt` (masked by default; opt in to full text with `CURSOR_MASK_PROMPTS=false`), `gen_ai.request.model` |
 | `preToolUse` / `postToolUse` | `cursor.preToolUse/postToolUse` | `gen_ai.tool.name`, `cursor.tool_input`, `cursor.tool_output` |
 | `postToolUseFailure` | `cursor.postToolUseFailure` | `gen_ai.tool.name`, `cursor.error` |
 | `beforeShellExecution` / `afterShellExecution` | `cursor.before/afterShellExecution` | `cursor.shell_command`, `cursor.cwd`, `cursor.exit_code` |
@@ -219,7 +221,7 @@ All spans carry: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.reque
 
 ## Privacy
 
-Set `CURSOR_MASK_PROMPTS=true` to replace all prompt content with `[MASKED]` before export. All other attributes (tool names, file paths, shell commands) are unaffected.
+Prompts and responses are masked by default — all prompt/response content is replaced with `[MASKED]` before export. Set `CURSOR_MASK_PROMPTS=false` to send full prompt and response text to Coralogix instead. All other attributes (tool names, file paths, shell commands) are unaffected. Spans still carry `gen_ai.request.model`, prompt length, response lines, and latency when masked.
 
 Set `CURSOR_OMIT_PRE_TOOL_USE_SPANS=true` to skip exporting `cursor.preToolUse` spans. `postToolUse` and `postToolUseFailure` spans are still exported and include `cursor.duration_ms`.
 

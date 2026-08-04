@@ -17,7 +17,9 @@
 #   -Endpoint        URL   CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   -Application     NAME  CX_APPLICATION_NAME (default: cursor)
 #   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (default: ai-agent)
-#   -MaskPrompts           CURSOR_MASK_PROMPTS (default: false)
+#   -MaskPrompts           CURSOR_MASK_PROMPTS (default: true)
+#   -NoMaskPrompts         Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
+#                          Wins if both -MaskPrompts and -NoMaskPrompts are passed.
 #   -OmitPreToolUse        CURSOR_OMIT_PRE_TOOL_USE_SPANS (default: false)
 #   -OtlpDebug             CX_OTLP_DEBUG       (default: false)
 #   -EnvFile         PATH  Load credentials from a .env file (local use)
@@ -32,6 +34,7 @@ param(
     [string]$Application = '',
     [string]$Subsystem   = '',
     [switch]$MaskPrompts,
+    [switch]$NoMaskPrompts,
     [switch]$OmitPreToolUse,
     [switch]$OtlpDebug,
     [string]$EnvFile     = '',
@@ -68,7 +71,7 @@ $cxApiKey      = Get-Default 'CX_API_KEY' ''
 $cxEndpoint    = Get-Default 'CX_OTLP_ENDPOINT' ''
 $cxApplication = Get-Default 'CX_APPLICATION_NAME' 'cursor'
 $cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' 'ai-agent'
-$cxMask        = Get-Default 'CURSOR_MASK_PROMPTS' 'false'
+$cxMask        = Get-Default 'CURSOR_MASK_PROMPTS' 'true'
 $cxOmitPre     = Get-Default 'CURSOR_OMIT_PRE_TOOL_USE_SPANS' 'false'
 $cxDebug       = Get-Default 'CX_OTLP_DEBUG' 'false'
 
@@ -77,6 +80,7 @@ if ($Endpoint)    { $cxEndpoint = $Endpoint }
 if ($Application) { $cxApplication = $Application }
 if ($Subsystem)   { $cxSubsystem = $Subsystem }
 if ($MaskPrompts)    { $cxMask = 'true' }
+if ($NoMaskPrompts)  { $cxMask = 'false' }  # -NoMaskPrompts wins if both are passed
 if ($OmitPreToolUse) { $cxOmitPre = 'true' }
 if ($OtlpDebug)      { $cxDebug = 'true' }
 

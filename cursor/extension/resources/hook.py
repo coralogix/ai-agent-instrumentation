@@ -64,7 +64,8 @@ CX_API_KEY          = os.environ.get("CX_API_KEY", "")
 CX_OTLP_ENDPOINT    = os.environ.get("CX_OTLP_ENDPOINT", "").rstrip("/")
 CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "cursor")
 CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "ai-agent")
-MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "").lower() == "true"
+# Masked by default; only the literal "false" opts out.
+MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "true").lower() != "false"
 OMIT_PRE_TOOL_USE   = os.environ.get("CURSOR_OMIT_PRE_TOOL_USE_SPANS", "").lower() == "true"
 DEBUG               = os.environ.get("CX_OTLP_DEBUG", "").lower() == "true"
 
