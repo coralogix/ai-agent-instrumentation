@@ -79,6 +79,8 @@ Inject credentials via environment variables from your secrets manager:
 CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx ./install.sh
 ```
 
+For turnkey Jamf (macOS) or Intune (Windows) rollout, see [`mdm/README.md`](mdm/README.md).
+
 The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the MDM must run the installer in the target user's context (e.g. an Intune user-context assignment, a Jamf login policy) — not as SYSTEM/root against the machine.
 
 ### All options
