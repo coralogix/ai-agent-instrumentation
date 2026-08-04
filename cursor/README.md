@@ -138,6 +138,8 @@ $env:CX_API_KEY = 'xxx'; $env:CX_OTLP_ENDPOINT = 'xxx'
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
+The hook installs into the signed-in user's profile (`%USERPROFILE%\.cursor`), so the deployment must run in the **user's context** — e.g. an Intune Win32 app with install behavior set to *User*, assigned to a user group. A SYSTEM-context run reports success but installs into a profile Cursor never reads.
+
 Uninstall:
 
 ```powershell
