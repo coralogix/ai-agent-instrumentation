@@ -16,7 +16,7 @@
 #   -ApiKey          KEY   CX_API_KEY          (required unless -EnvFile is used)
 #   -Endpoint        URL   CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   -Application     NAME  CX_APPLICATION_NAME (default: cursor)
-#   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (default: ai-agent)
+#   -Subsystem       NAME  CX_SUBSYSTEM_NAME   (default: cursor-sessions)
 #   -MaskPrompts           CURSOR_MASK_PROMPTS (default: true)
 #   -NoMaskPrompts         Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
 #                          Wins if both -MaskPrompts and -NoMaskPrompts are passed.
@@ -70,7 +70,7 @@ function Get-Default([string]$EnvName, [string]$Fallback) {
 $cxApiKey      = Get-Default 'CX_API_KEY' ''
 $cxEndpoint    = Get-Default 'CX_OTLP_ENDPOINT' ''
 $cxApplication = Get-Default 'CX_APPLICATION_NAME' 'cursor'
-$cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' 'ai-agent'
+$cxSubsystem   = Get-Default 'CX_SUBSYSTEM_NAME' 'cursor-sessions'
 $cxMask        = Get-Default 'CURSOR_MASK_PROMPTS' 'true'
 $cxOmitPre     = Get-Default 'CURSOR_OMIT_PRE_TOOL_USE_SPANS' 'false'
 $cxDebug       = Get-Default 'CX_OTLP_DEBUG' 'false'

@@ -50,7 +50,7 @@ Create a `.env` file with your credentials:
 CX_API_KEY=<your-send-your-data-api-key>
 CX_OTLP_ENDPOINT=https://ingress.<your-region>.coralogix.com  # see region table below
 CX_APPLICATION_NAME=cursor
-CX_SUBSYSTEM_NAME=ai-agent
+CX_SUBSYSTEM_NAME=cursor-sessions
 
 # Optional
 # Masked by default. Set to false to send full prompt and response text to Coralogix.
@@ -88,7 +88,7 @@ The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the M
   --api-key       <key>      # required (or CX_API_KEY env var)
   --endpoint      <url>      # required — your region's OTLP ingress (see table below)
   --application   <name>     # optional, default: cursor
-  --subsystem     <name>     # optional, default: ai-agent
+  --subsystem     <name>     # optional, default: cursor-sessions
   --mask-prompts             # optional, replace prompts with [MASKED] (default)
   --no-mask-prompts          # optional, send full prompt/response text
   --omit-pre-tool-use        # optional, skip preToolUse spans
@@ -125,7 +125,7 @@ All options:
 | `-ApiKey <key>` | required (or `CX_API_KEY` env var) |
 | `-Endpoint <url>` | required — your region's OTLP ingress (see table below) |
 | `-Application <name>` | default: `cursor` |
-| `-Subsystem <name>` | default: `ai-agent` |
+| `-Subsystem <name>` | default: `cursor-sessions` |
 | `-MaskPrompts` | replace prompts with `[MASKED]` (default) |
 | `-NoMaskPrompts` | send full prompt/response text |
 | `-OmitPreToolUse` | skip `preToolUse` spans |

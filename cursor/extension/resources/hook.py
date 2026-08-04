@@ -9,7 +9,7 @@
 #   CX_API_KEY          - Coralogix Send-Your-Data API key
 #   CX_OTLP_ENDPOINT    - e.g. https://ingress.eu2.coralogix.com
 #   CX_APPLICATION_NAME - e.g. cursor  (default: cursor)
-#   CX_SUBSYSTEM_NAME   - e.g. ai-agent (default: ai-agent)
+#   CX_SUBSYSTEM_NAME   - e.g. cursor-sessions (default: cursor-sessions)
 
 import contextlib
 import hashlib
@@ -63,7 +63,7 @@ except ImportError:
 CX_API_KEY          = os.environ.get("CX_API_KEY", "")
 CX_OTLP_ENDPOINT    = os.environ.get("CX_OTLP_ENDPOINT", "").rstrip("/")
 CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "cursor")
-CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "ai-agent")
+CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "cursor-sessions")
 # Masked by default; only the literal "false" opts out.
 MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "true").lower() != "false"
 OMIT_PRE_TOOL_USE   = os.environ.get("CURSOR_OMIT_PRE_TOOL_USE_SPANS", "").lower() == "true"

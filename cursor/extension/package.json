@@ -55,7 +55,7 @@
         },
         "cursorCoralogix.subsystemName": {
           "type": "string",
-          "default": "ai-agent",
+          "default": "cursor-sessions",
           "description": "Coralogix subsystem name tag (CX-Subsystem-Name header)."
         },
         "cursorCoralogix.maskPrompts": {

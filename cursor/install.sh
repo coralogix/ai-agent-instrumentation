@@ -14,7 +14,7 @@
 #   --api-key       KEY    CX_API_KEY          (required unless --env-file is used)
 #   --endpoint      URL    CX_OTLP_ENDPOINT    (required: your region's OTLP ingress)
 #   --application   NAME   CX_APPLICATION_NAME (default: cursor)
-#   --subsystem     NAME   CX_SUBSYSTEM_NAME   (default: ai-agent)
+#   --subsystem     NAME   CX_SUBSYSTEM_NAME   (default: cursor-sessions)
 #   --mask-prompts         CURSOR_MASK_PROMPTS (default: true)
 #   --no-mask-prompts      Send full prompt/response text (sets CURSOR_MASK_PROMPTS=false)
 #   --omit-pre-tool-use    CURSOR_OMIT_PRE_TOOL_USE_SPANS (default: false)
@@ -32,7 +32,7 @@ set -euo pipefail
 API_KEY="${CX_API_KEY:-}"
 ENDPOINT="${CX_OTLP_ENDPOINT:-}"
 APPLICATION="${CX_APPLICATION_NAME:-cursor}"
-SUBSYSTEM="${CX_SUBSYSTEM_NAME:-ai-agent}"
+SUBSYSTEM="${CX_SUBSYSTEM_NAME:-cursor-sessions}"
 MASK_PROMPTS="${CURSOR_MASK_PROMPTS:-true}"
 OMIT_PRE_TOOL_USE="${CURSOR_OMIT_PRE_TOOL_USE_SPANS:-false}"
 DEBUG="${CX_OTLP_DEBUG:-false}"
