@@ -407,7 +407,7 @@ Write-Host "hooks.json:     $HooksJson"
 Write-Host "Installing Python dependencies..."
 $pipArgs = @()
 $pipArgs += $PyPre
-$pipArgs += @('-m', 'pip', 'install', '--quiet', '--user',
+$pipArgs += @('-m', 'pip', 'install', '--quiet', '--user', '--no-warn-script-location',
               'opentelemetry-sdk', 'opentelemetry-exporter-otlp-proto-http')
 try { & $PyExe $pipArgs } catch { $global:LASTEXITCODE = 1 }
 if ($LASTEXITCODE -ne 0) {

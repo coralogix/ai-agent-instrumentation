@@ -128,7 +128,7 @@ function installPythonDeps(output: vscode.OutputChannel): Promise<void> {
     const packages = ['opentelemetry-sdk', 'opentelemetry-exporter-otlp-proto-http'];
 
     function runPip(cmd: string, prefixArgs: string[], extraArgs: string[], onFail: () => void): void {
-      const args = [...prefixArgs, '-m', 'pip', 'install', '--quiet', '--user', ...extraArgs, ...packages];
+      const args = [...prefixArgs, '-m', 'pip', 'install', '--quiet', '--user', '--no-warn-script-location', ...extraArgs, ...packages];
       const proc = spawn(cmd, args);
       let settled = false;
 

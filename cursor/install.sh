@@ -249,8 +249,8 @@ echo "hooks.json:     $HOOKS_JSON"
 # 6. Install Python dependencies
 echo "Installing Python dependencies..."
 PACKAGES=(opentelemetry-sdk opentelemetry-exporter-otlp-proto-http)
-if ! python3 -m pip install --quiet --user "${PACKAGES[@]}" 2>/dev/null; then
-  python3 -m pip install --quiet --user --break-system-packages "${PACKAGES[@]}"
+if ! python3 -m pip install --quiet --user --no-warn-script-location "${PACKAGES[@]}" 2>/dev/null; then
+  python3 -m pip install --quiet --user --no-warn-script-location --break-system-packages "${PACKAGES[@]}"
 fi
 echo "Python dependencies installed."
 
