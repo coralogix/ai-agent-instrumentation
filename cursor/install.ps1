@@ -337,6 +337,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "icacls exited with $LASTEXITCODE" }
 } catch {
     Write-Warning "Could not restrict permissions on $InstalledEnv - it contains your API key."
+    Write-Warning "  Reason: $($_.Exception.Message)"
 }
 Write-Host "Env written:    $InstalledEnv"
 
