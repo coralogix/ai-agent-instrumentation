@@ -317,20 +317,24 @@ $EnvContent = @(
 ) -join "`r`n"
 Write-Utf8File $InstalledEnv ($EnvContent + "`r`n")
 
-# NTFS chmod-600 equivalent: drop inherited rules, grant only the profile owner
-# and the invoking account - an MDM runs this as SYSTEM against another user's profile.
+# NTFS chmod-600 equivalent via icacls: strip inheritance and grant only the
+# profile owner and the invoking account (an MDM runs this as SYSTEM against
+# another user's profile). SIDs avoid localized account names, and icacls
+# replaces the DACL atomically - PS 5.1's RemoveAccessRule throws on the
+# inherited rules this file starts with.
 try {
-    $grantees = @()
-    try { $grantees += (Get-Acl -LiteralPath $UserHome).Owner } catch {}
-    $grantees += [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $acl = Get-Acl -LiteralPath $InstalledEnv
-    $acl.SetAccessRuleProtection($true, $false)
-    foreach ($rule in @($acl.Access)) { $acl.RemoveAccessRule($rule) | Out-Null }
-    foreach ($who in ($grantees | Where-Object { $_ } | Select-Object -Unique)) {
-        $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule `
-            -ArgumentList $who, 'FullControl', 'None', 'None', 'Allow'))
+    $sids = @()
+    try {
+        $sids += (Get-Acl -LiteralPath $UserHome).GetOwner(
+            [System.Security.Principal.SecurityIdentifier]).Value
+    } catch {}
+    $sids += [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $grantArgs = @()
+    foreach ($sid in ($sids | Where-Object { $_ } | Select-Object -Unique)) {
+        $grantArgs += @('/grant:r', ('*' + $sid + ':F'))
     }
-    Set-Acl -LiteralPath $InstalledEnv -AclObject $acl
+    icacls $InstalledEnv /inheritance:r @grantArgs | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls exited with $LASTEXITCODE" }
 } catch {
     Write-Warning "Could not restrict permissions on $InstalledEnv - it contains your API key."
 }

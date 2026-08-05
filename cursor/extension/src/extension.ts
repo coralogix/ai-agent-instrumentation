@@ -188,13 +188,12 @@ function restrictWindowsAcl(filePath: string, output: vscode.OutputChannel): Pro
   // Node's `mode: 0o600` is a no-op on NTFS; the file otherwise inherits folder ACLs.
   return new Promise((resolve) => {
     const psLiteral = filePath.replace(/'/g, "''");
+    // icacls with the user's SID: strips inheritance atomically and avoids
+    // localized account names; PS 5.1's RemoveAccessRule throws on inherited rules.
     const script = [
-      `$acl = Get-Acl -LiteralPath '${psLiteral}'`,
-      '$acl.SetAccessRuleProtection($true, $false)',
-      'foreach ($rule in @($acl.Access)) { $acl.RemoveAccessRule($rule) | Out-Null }',
-      '$who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name',
-      "$acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule -ArgumentList $who, 'FullControl', 'None', 'None', 'Allow'))",
-      `Set-Acl -LiteralPath '${psLiteral}' -AclObject $acl`,
+      '$sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value',
+      `icacls '${psLiteral}' /inheritance:r /grant:r ('*' + $sid + ':F') | Out-Null`,
+      'exit $LASTEXITCODE',
     ].join('; ');
 
     let settled = false;
