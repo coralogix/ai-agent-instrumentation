@@ -4,6 +4,16 @@
   "description": "Ship Cursor agent sessions — prompts, tool calls, shell executions, and MCP calls — to Coralogix as OTLP traces.",
   "version": "1.0.0",
   "publisher": "coralogix",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coralogix/ai-agent-instrumentation.git",
+    "directory": "cursor/extension"
+  },
+  "homepage": "https://github.com/coralogix/ai-agent-instrumentation/tree/master/cursor",
+  "bugs": {
+    "url": "https://github.com/coralogix/ai-agent-instrumentation/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

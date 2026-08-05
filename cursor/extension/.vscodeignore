@@ -3,6 +3,9 @@ node_modules/**
 src/**
 out/**
 .gitignore
+.vscodeignore
 tsconfig.json
 webpack.config.js
+package-lock.json
 **/*.map
+**/.DS_Store

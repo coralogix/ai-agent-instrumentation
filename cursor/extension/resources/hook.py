@@ -10,6 +10,14 @@
 #   CX_OTLP_ENDPOINT    - e.g. https://ingress.eu2.coralogix.com
 #   CX_APPLICATION_NAME - e.g. cursor
 #   CX_SUBSYSTEM_NAME   - e.g. cursor-sessions
+#
+# Optional env vars:
+#   CURSOR_MASK_PROMPTS             - "false" sends full prompt/response text
+#   CURSOR_OMIT_PRE_TOOL_USE_SPANS  - "true" drops preToolUse spans
+#   CX_OTLP_DEBUG                   - "true" prints the raw event and span IDs
+#
+# Whatever goes wrong, this script prints "{}" and exits 0: a hook must never
+# break the Cursor session.
 
 import contextlib
 import hashlib
@@ -19,6 +27,11 @@ import sys
 import time
 from pathlib import Path
 from urllib.parse import urlparse
+
+# Cursor pipes stderr, so Python falls back to the locale encoding (cp1252 and
+# friends on Windows) and a non-ASCII path in a debug dump would raise.
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 try:
     import fcntl as _fcntl
@@ -51,10 +64,13 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags, Status, StatusCode
 except ImportError:
-    sys.exit(
-        "cursor-coralogix-hook: missing dependency — run:\n"
-        "  pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http"
+    print(
+        "cursor-coralogix-hook: missing dependency - run:\n"
+        "  pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http",
+        file=sys.stderr,
     )
+    print("{}")
+    sys.exit(0)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -76,11 +92,12 @@ if CX_OTLP_ENDPOINT:
         _endpoint_url.scheme == "http" and _endpoint_url.hostname in ("localhost", "127.0.0.1", "::1")
     ):
         print(
-            "cursor-coralogix-hook: refusing non-https endpoint {} — API key would be sent in cleartext".format(
+            "cursor-coralogix-hook: refusing non-https endpoint {} - API key would be sent in cleartext".format(
                 CX_OTLP_ENDPOINT
             ),
             file=sys.stderr,
         )
+        print("{}")
         sys.exit(0)
 
 _SERVICE_VERSION = "2.0.0"
@@ -118,13 +135,20 @@ def delete_state(conv_id):
 
 
 def prune_old_states():
+    """Drop state and lock files from conversations that ended over a day ago."""
     cutoff = time.time() - 86400
     try:
-        for f in _STATE_DIR.glob("*.json"):
+        entries = list(_STATE_DIR.iterdir())
+    except OSError:
+        return
+    for f in entries:
+        if f.suffix not in (".json", ".lock"):
+            continue
+        try:
             if f.stat().st_mtime < cutoff:
                 f.unlink()
-    except Exception:
-        pass
+        except OSError:
+            pass
 
 
 @contextlib.contextmanager
@@ -191,7 +215,6 @@ def update_state(event, state):
         state.pop("prompt_start_ns", None)
 
 
-
 # ---------------------------------------------------------------------------
 # Build span attributes
 # ---------------------------------------------------------------------------
@@ -224,7 +247,10 @@ def build_attributes(event, state):
             attrs[key] = str(value)
 
     def add_int(key, value):
-        attrs[key] = int(value)
+        try:
+            attrs[key] = int(value)
+        except (TypeError, ValueError):
+            pass
 
     name = event.get("hook_event_name", "")
 
@@ -471,9 +497,12 @@ def _emit_span_inner(event, hook_name, state):
     if CX_SUBSYSTEM_NAME:
         headers["CX-Subsystem-Name"] = CX_SUBSYSTEM_NAME
 
+    # Stay under the 10s timeout hooks.json gives us, so a slow or unreachable
+    # endpoint ends in a clean drop rather than Cursor killing the process.
     exporter = OTLPSpanExporter(
         endpoint=CX_OTLP_ENDPOINT + "/v1/traces",
         headers=headers,
+        timeout=5,
     )
 
     provider = TracerProvider(resource=resource)
@@ -563,6 +592,11 @@ def main():
                         }
                 state = {"start_time_ns": time.time_ns(), **inherited}
                 save_after_emit = not inherited and hook_name != "stop"
+            elif not state.get("trace_id") and hook_name not in ("stop", "sessionEnd"):
+                # The first event never established a root (its export raised, or it
+                # was skipped by OMIT_PRE_TOOL_USE); let this event become the root
+                # so the rest of the session still correlates into one trace.
+                save_after_emit = True
             update_state(event, state)
             if not save_after_emit:
                 if hook_name == "sessionEnd":
