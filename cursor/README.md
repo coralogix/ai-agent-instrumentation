@@ -81,14 +81,14 @@ CX_API_KEY=xxx CX_OTLP_ENDPOINT=xxx CX_APPLICATION_NAME=cursor CX_SUBSYSTEM_NAME
 
 The hook is installed per-user (`~/.cursor` / `%USERPROFILE%\.cursor`), so the MDM must run the installer in the target user's context (e.g. an Intune user-context assignment, a Jamf login policy) — not as SYSTEM/root against the machine.
 
-**MDM deployment notes** (how you deploy is up to you; these save the common pitfalls):
+**MDM deployment notes:**
 
-- **User context is the #1 pitfall.** An MDM agent's default identity is root/SYSTEM; run that way, the installer writes into a profile Cursor never reads — the policy reports success and no data arrives. Jamf: execute the installer as the console user (e.g. `launchctl asuser <uid> sudo -u <user> -H`); Intune: package as a Win32 app with install behavior *User*, assigned to a user group. Detection rule: `%USERPROFILE%\.cursor\hooks\coralogix_hook.cmd` exists.
-- **Machine-wide alternative:** Cursor also reads a system-level `hooks.json` (`/Library/Application Support/Cursor/hooks.json`, `C:\ProgramData\Cursor\hooks.json`, `/etc/cursor/hooks.json`), which suits MDMs' native root/SYSTEM mode — one install covers every user of the machine. If you go that route: place `hook.py`, the wrapper, and the env file at a machine path readable by all users, and install the two Python packages machine-wide (e.g. a dedicated venv) — a `pip install --user` under root/SYSTEM is invisible to real users. Verify your Cursor plan loads system-level hooks on one machine before fleet rollout.
-- **Credentials:** inject `CX_API_KEY` (and the other three values) from your MDM's secrets/variable mechanism rather than hardcoding them in a saved policy, where anyone with policy read access can see them.
-- **Python 3.8+** must exist on the endpoints (`python3` on macOS via Xcode CLT; `python`/`py -3` on Windows) — distribute it via MDM if your fleet lacks it. Without it the hook is silently inert.
-- The installers are **idempotent** (safe to re-run on every check-in cycle) and reversible (`--uninstall` / `-Uninstall` for offboarding).
-- **Avoid double-deployment:** a machine with both a per-user install and any other delivery of the same hook (machine-wide or Cursor Enterprise team hooks) sends duplicate spans — pick one mechanism per fleet.
+- **Run the installer in the user's context.** MDM agents execute as root/SYSTEM by default; in that context the installer writes to the root/SYSTEM profile instead of the developer's, so the policy reports success but Cursor never loads the hook. On Jamf, execute the installer as the logged-in user (e.g. `launchctl asuser <uid> sudo -u <user> -H`); on Intune, package the installer as a Win32 app with install behavior set to *User* and assign it to a user group. A suitable detection rule is the presence of `%USERPROFILE%\.cursor\hooks\coralogix_hook.cmd`.
+- **Machine-wide alternative:** Cursor also reads a system-level `hooks.json` (`/Library/Application Support/Cursor/hooks.json`, `C:\ProgramData\Cursor\hooks.json`, `/etc/cursor/hooks.json`), which fits the root/SYSTEM execution model — one installation covers every user of the machine. If you take this route, place `hook.py`, the wrapper, and the env file at a machine path readable by all users, and install the two Python packages machine-wide (for example in a dedicated virtual environment), since a `pip install --user` performed as root/SYSTEM is not visible to other users. We recommend validating system-level hook loading on a single machine before a fleet rollout.
+- **Credentials:** inject `CX_API_KEY` and the other required values from your MDM's secrets or variable mechanism rather than hardcoding them in a saved policy.
+- **Python 3.8+** must be present on the endpoints (`python3` on macOS; `python` or `py -3` on Windows); distribute it via MDM if your fleet lacks it. If Python is missing, the hook does nothing and Cursor is unaffected.
+- The installers are **idempotent** — safe to re-run on every check-in cycle — and offboarding uses the same script with `--uninstall` / `-Uninstall`.
+- **Use a single delivery mechanism per machine.** Combining a per-user install with another delivery of the same hook (machine-wide, or Cursor Enterprise team hooks) results in duplicate spans.
 
 ### All options
 
