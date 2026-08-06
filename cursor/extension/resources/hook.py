@@ -8,8 +8,16 @@
 # Required env vars:
 #   CX_API_KEY          - Coralogix Send-Your-Data API key
 #   CX_OTLP_ENDPOINT    - e.g. https://ingress.eu2.coralogix.com
-#   CX_APPLICATION_NAME - e.g. cursor  (default: cursor)
-#   CX_SUBSYSTEM_NAME   - e.g. ai-agent (default: ai-agent)
+#   CX_APPLICATION_NAME - e.g. cursor
+#   CX_SUBSYSTEM_NAME   - e.g. cursor-sessions
+#
+# Optional env vars:
+#   CURSOR_MASK_PROMPTS             - "false" sends full prompt/response text
+#   CURSOR_OMIT_PRE_TOOL_USE_SPANS  - "true" drops preToolUse spans
+#   CX_OTLP_DEBUG                   - "true" prints the raw event and span IDs
+#
+# Whatever goes wrong, this script prints "{}" and exits 0: a hook must never
+# break the Cursor session.
 
 import contextlib
 import hashlib
@@ -18,6 +26,12 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlparse
+
+# Cursor pipes stderr, so Python falls back to the locale encoding (cp1252 and
+# friends on Windows) and a non-ASCII path in a debug dump would raise.
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 try:
     import fcntl as _fcntl
@@ -26,8 +40,18 @@ try:
 except ImportError:
     try:
         import msvcrt as _msvcrt
-        def _lock(f):   _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
-        def _unlock(f): _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+        # msvcrt.locking raises OSError after ~10s of retries instead of blocking
+        # like fcntl.flock; swallow it so lock contention degrades to a race, not a crash.
+        def _lock(f):
+            try:
+                _msvcrt.locking(f.fileno(), _msvcrt.LK_LOCK, 1)
+            except OSError:
+                pass
+        def _unlock(f):
+            try:
+                _msvcrt.locking(f.fileno(), _msvcrt.LK_UNLCK, 1)
+            except OSError:
+                pass
     except ImportError:
         def _lock(_):   pass
         def _unlock(_): pass
@@ -40,10 +64,13 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags, Status, StatusCode
 except ImportError:
-    sys.exit(
-        "cursor-coralogix-hook: missing dependency — run:\n"
-        "  pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http"
+    print(
+        "cursor-coralogix-hook: missing dependency - run:\n"
+        "  pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http",
+        file=sys.stderr,
     )
+    print("{}")
+    sys.exit(0)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -51,13 +78,33 @@ except ImportError:
 
 CX_API_KEY          = os.environ.get("CX_API_KEY", "")
 CX_OTLP_ENDPOINT    = os.environ.get("CX_OTLP_ENDPOINT", "").rstrip("/")
-CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "cursor")
-CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "ai-agent")
-MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "").lower() == "true"
+CX_APPLICATION_NAME = os.environ.get("CX_APPLICATION_NAME", "")
+CX_SUBSYSTEM_NAME   = os.environ.get("CX_SUBSYSTEM_NAME", "")
+# Masked by default; only the literal "false" opts out.
+MASK_PROMPTS        = os.environ.get("CURSOR_MASK_PROMPTS", "true").lower() != "false"
 OMIT_PRE_TOOL_USE   = os.environ.get("CURSOR_OMIT_PRE_TOOL_USE_SPANS", "").lower() == "true"
 DEBUG               = os.environ.get("CX_OTLP_DEBUG", "").lower() == "true"
 
+# http:// is only safe for a local collector; anything else leaks the Bearer API key in cleartext.
+if CX_OTLP_ENDPOINT:
+    _endpoint_url = urlparse(CX_OTLP_ENDPOINT)
+    if _endpoint_url.scheme != "https" and not (
+        _endpoint_url.scheme == "http" and _endpoint_url.hostname in ("localhost", "127.0.0.1", "::1")
+    ):
+        print(
+            "cursor-coralogix-hook: refusing non-https endpoint {} - API key would be sent in cleartext".format(
+                CX_OTLP_ENDPOINT
+            ),
+            file=sys.stderr,
+        )
+        print("{}")
+        sys.exit(0)
+
 _SERVICE_VERSION = "2.0.0"
+
+# Coralogix integration-source identity, stamped on every span.
+_INTEGRATION_SOURCE_TYPE    = "cursor_agent"
+_INTEGRATION_SOURCE_VERSION = "1.0.0"
 
 # ---------------------------------------------------------------------------
 # State persistence
@@ -92,13 +139,20 @@ def delete_state(conv_id):
 
 
 def prune_old_states():
+    """Drop state and lock files from conversations that ended over a day ago."""
     cutoff = time.time() - 86400
     try:
-        for f in _STATE_DIR.glob("*.json"):
+        entries = list(_STATE_DIR.iterdir())
+    except OSError:
+        return
+    for f in entries:
+        if f.suffix not in (".json", ".lock"):
+            continue
+        try:
             if f.stat().st_mtime < cutoff:
                 f.unlink()
-    except Exception:
-        pass
+        except OSError:
+            pass
 
 
 @contextlib.contextmanager
@@ -165,7 +219,6 @@ def update_state(event, state):
         state.pop("prompt_start_ns", None)
 
 
-
 # ---------------------------------------------------------------------------
 # Build span attributes
 # ---------------------------------------------------------------------------
@@ -198,11 +251,16 @@ def build_attributes(event, state):
             attrs[key] = str(value)
 
     def add_int(key, value):
-        attrs[key] = int(value)
+        try:
+            attrs[key] = int(value)
+        except (TypeError, ValueError):
+            pass
 
     name = event.get("hook_event_name", "")
 
     # Core identity
+    add("cx.integration.source.type",    _INTEGRATION_SOURCE_TYPE)
+    add("cx.integration.source.version", _INTEGRATION_SOURCE_VERSION)
     add("cursor.conversation_id", conversation_id(event))
     add("cursor.generation_id",   event.get("generation_id"))
     add("cursor.user_email",      event.get("user_email"))
@@ -438,13 +496,19 @@ def _emit_span_inner(event, hook_name, state):
         "telemetry.sdk.name": "cursor-coralogix-hook",
     })
 
+    headers = {"Authorization": "Bearer " + CX_API_KEY}
+    # Stamped only when explicitly configured — no code default to fall back to.
+    if CX_APPLICATION_NAME:
+        headers["CX-Application-Name"] = CX_APPLICATION_NAME
+    if CX_SUBSYSTEM_NAME:
+        headers["CX-Subsystem-Name"] = CX_SUBSYSTEM_NAME
+
+    # Stay under the 10s timeout hooks.json gives us, so a slow or unreachable
+    # endpoint ends in a clean drop rather than Cursor killing the process.
     exporter = OTLPSpanExporter(
         endpoint=CX_OTLP_ENDPOINT + "/v1/traces",
-        headers={
-            "Authorization":       "Bearer " + CX_API_KEY,
-            "CX-Application-Name": CX_APPLICATION_NAME,
-            "CX-Subsystem-Name":   CX_SUBSYSTEM_NAME,
-        },
+        headers=headers,
+        timeout=5,
     )
 
     provider = TracerProvider(resource=resource)
@@ -534,6 +598,11 @@ def main():
                         }
                 state = {"start_time_ns": time.time_ns(), **inherited}
                 save_after_emit = not inherited and hook_name != "stop"
+            elif not state.get("trace_id") and hook_name not in ("stop", "sessionEnd"):
+                # The first event never established a root (its export raised, or it
+                # was skipped by OMIT_PRE_TOOL_USE); let this event become the root
+                # so the rest of the session still correlates into one trace.
+                save_after_emit = True
             update_state(event, state)
             if not save_after_emit:
                 if hook_name == "sessionEnd":

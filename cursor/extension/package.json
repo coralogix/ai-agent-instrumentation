@@ -4,6 +4,16 @@
   "description": "Ship Cursor agent sessions — prompts, tool calls, shell executions, and MCP calls — to Coralogix as OTLP traces.",
   "version": "1.0.0",
   "publisher": "coralogix",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coralogix/ai-agent-instrumentation.git",
+    "directory": "cursor/extension"
+  },
+  "homepage": "https://github.com/coralogix/ai-agent-instrumentation/tree/master/cursor",
+  "bugs": {
+    "url": "https://github.com/coralogix/ai-agent-instrumentation/issues"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -36,8 +46,8 @@
       "properties": {
         "cursorCoralogix.otlpEndpoint": {
           "type": "string",
-          "default": "https://ingress.eu2.coralogix.com",
-          "description": "Coralogix OTLP ingress endpoint for your region.",
+          "default": "",
+          "description": "Coralogix OTLP ingress endpoint for your region. Required — select the endpoint matching your tenant's region.",
           "enum": [
             "https://ingress.us1.coralogix.com",
             "https://ingress.us2.coralogix.com",
@@ -50,18 +60,18 @@
         },
         "cursorCoralogix.applicationName": {
           "type": "string",
-          "default": "cursor",
-          "description": "Coralogix application name tag (CX-Application-Name header)."
+          "default": "",
+          "description": "Coralogix application name tag (CX-Application-Name header). Required — conventional value: cursor."
         },
         "cursorCoralogix.subsystemName": {
           "type": "string",
-          "default": "ai-agent",
-          "description": "Coralogix subsystem name tag (CX-Subsystem-Name header)."
+          "default": "",
+          "description": "Coralogix subsystem name tag (CX-Subsystem-Name header). Required — conventional value: cursor-sessions."
         },
         "cursorCoralogix.maskPrompts": {
           "type": "boolean",
-          "default": false,
-          "description": "Replace all prompt and response text with [MASKED] before sending to Coralogix."
+          "default": true,
+          "description": "Masked by default. Replace all prompt and response text with [MASKED] before sending to Coralogix; disable to send full text."
         },
         "cursorCoralogix.omitPreToolUseSpans": {
           "type": "boolean",
