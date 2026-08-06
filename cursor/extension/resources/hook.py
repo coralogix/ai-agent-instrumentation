@@ -102,6 +102,10 @@ if CX_OTLP_ENDPOINT:
 
 _SERVICE_VERSION = "2.0.0"
 
+# Coralogix integration-source identity, stamped on every span.
+_INTEGRATION_SOURCE_TYPE    = "cursor_agent"
+_INTEGRATION_SOURCE_VERSION = "1.0.0"
+
 # ---------------------------------------------------------------------------
 # State persistence
 # ---------------------------------------------------------------------------
@@ -255,6 +259,8 @@ def build_attributes(event, state):
     name = event.get("hook_event_name", "")
 
     # Core identity
+    add("cx.integration.source.type",    _INTEGRATION_SOURCE_TYPE)
+    add("cx.integration.source.version", _INTEGRATION_SOURCE_VERSION)
     add("cursor.conversation_id", conversation_id(event))
     add("cursor.generation_id",   event.get("generation_id"))
     add("cursor.user_email",      event.get("user_email"))
