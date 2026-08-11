@@ -145,23 +145,33 @@ EMAIL="$(get_ev user_email)"
 [ -n "$EV_CWD$FP" ] || exit 0
 
 # ---------------------------------------------------------------------------
-# Repo detection (git optional; avoid the /usr/bin/git CLT stub, which pops a
-# GUI install dialog on Macs without Command Line Tools). Every git call is
+# Repo detection (git optional). Resolve an ABSOLUTE git binary instead of
+# trusting PATH: Claude Code launches hooks with a bare-bones PATH where the
+# only git is /usr/bin/git, and that is a shim for Apple's developer tools which
+# pops a GUI install dialog when they are absent. So we look for the real
+# binaries the shim forwards to (plus the usual package-manager prefixes) and
+# never exec the shim itself — which also means a Homebrew git is used even
+# though /opt/homebrew/bin is missing from the hook's PATH. Every git call is
 # bounded to 5s via a watchdog so a hung fs/mount degrades instead of stalling.
 # ---------------------------------------------------------------------------
-GIT_OK=0
-GIT_PATH="$(command -v git 2>/dev/null)"
-if [ -n "$GIT_PATH" ]; then
-  if [ "$GIT_PATH" = "/usr/bin/git" ]; then
-    xcode-select -p >/dev/null 2>&1 && GIT_OK=1
-  else
-    GIT_OK=1
-  fi
+GIT_BIN=""
+for _cand in \
+  /opt/homebrew/bin/git \
+  /usr/local/bin/git \
+  /Library/Developer/CommandLineTools/usr/bin/git \
+  /Applications/*.app/Contents/Developer/usr/bin/git
+do
+  if [ -x "$_cand" ]; then GIT_BIN="$_cand"; break; fi
+done
+# Anything on PATH except the shim is fine too (custom prefix, or non-macOS).
+if [ -z "$GIT_BIN" ]; then
+  _p="$(command -v git 2>/dev/null)"
+  case "$_p" in ""|/usr/bin/git) ;; *) GIT_BIN="$_p" ;; esac
 fi
 
 git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
   _o="$(mktemp "${TMPDIR:-/tmp}/cx-git.XXXXXX")" || return 1
-  git "$@" >"$_o" 2>/dev/null & _gp=$!
+  "$GIT_BIN" "$@" >"$_o" 2>/dev/null & _gp=$!
   ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) & _gw=$!
   wait "$_gp" 2>/dev/null; _rc=$?
   kill -TERM "$_gw" 2>/dev/null; wait "$_gw" 2>/dev/null
@@ -170,7 +180,7 @@ git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
 }
 
 repo_root() { # $1=dir
-  [ "$GIT_OK" = 1 ] || return 1
+  [ -n "$GIT_BIN" ] || return 1
   git_bounded -C "$1" rev-parse --show-toplevel
 }
 

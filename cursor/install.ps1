@@ -4,7 +4,8 @@
 # Works for a local install and for MDM provisioning (Intune, SCCM, PDQ, etc.).
 #
 # Targets Windows PowerShell 5.1 (ships with every Windows 10/11) and works
-# unchanged on pwsh 7. Requires Python 3.8+ on PATH (python, py -3, or python3).
+# unchanged on pwsh 7. Requires Python 3.8+ (python, py -3, or python3); the
+# absolute path of the interpreter that answers is pinned into the wrapper.
 #
 # Run with -Help for usage.
 
@@ -162,20 +163,32 @@ function Write-Utf8File([string]$Path, [string]$Content) {
 }
 
 # ---------------------------------------------------------------------------
-# Python interpreter resolution (installer-side; the wrapper resolves its own)
+# Python interpreter resolution (the wrapper inherits the path resolved here)
 # ---------------------------------------------------------------------------
 
+# Each candidate is probed by RUNNING it, not just by looking it up: on stock
+# Windows the python.exe on PATH is often the Microsoft Store App Execution Alias,
+# which exists, resolves, and then opens the Store instead of running Python.
+# The winner is returned as its ABSOLUTE path so the wrapper never repeats this
+# lookup in Cursor's bare-bones hook environment.
 function Resolve-Python {
     foreach ($candidate in @(@('python'), @('py', '-3'), @('python3'))) {
         $exe = $candidate[0]
-        if (-not (Get-Command $exe -ErrorAction SilentlyContinue)) { continue }
+        $resolved = Get-Command $exe -ErrorAction SilentlyContinue
+        if (-not $resolved) { continue }
         $probeArgs = @()
         if ($candidate.Count -gt 1) { $probeArgs += $candidate[1..($candidate.Count - 1)] }
         $probeArgs += '-c'
         $probeArgs += 'import sys; sys.exit(0)'
         try {
             & $exe $probeArgs 2>$null | Out-Null
-            if ($LASTEXITCODE -eq 0) { return ,$candidate }
+            if ($LASTEXITCODE -eq 0) {
+                $path = $resolved.Source
+                if (-not $path) { $path = $exe }
+                $pre = @()
+                if ($candidate.Count -gt 1) { $pre = $candidate[1..($candidate.Count - 1)] }
+                return ,(@($path) + $pre)
+            }
         } catch {}
     }
     return $null
@@ -183,12 +196,17 @@ function Resolve-Python {
 
 $Python = Resolve-Python
 if (-not $Python) {
-    Write-Err "Error: Python 3.8+ not found on PATH (tried python, py -3, python3)."
+    Write-Err "Error: no working Python 3.8+ found (tried python, py -3, python3)."
+    Write-Err "A python.exe that only opens the Microsoft Store does not count - install a real"
+    Write-Err "interpreter (winget install Python.Python.3.12, or https://www.python.org/downloads/windows/),"
+    Write-Err "then re-run this installer."
     exit 1
 }
 $PyExe = $Python[0]
 $PyPre = @()
 if ($Python.Count -gt 1) { $PyPre = $Python[1..($Python.Count - 1)] }
+$PyDisplay = ($PyExe + ' ' + ($PyPre -join ' ')).Trim()
+Write-Host "Python:         $PyDisplay"
 
 # PS 5.1's ConvertTo-Json unwraps single-element arrays into objects and would
 # corrupt hooks.json, so all JSON I/O goes through this Python helper instead.
@@ -421,17 +439,14 @@ try {
         }
     }
 
-    $python = $null
-    $pyArgs = @()
-    foreach ($candidate in @(@('python'), @('py', '-3'), @('python3'))) {
-        if (Get-Command $candidate[0] -ErrorAction SilentlyContinue) {
-            $python = $candidate[0]
-            if ($candidate.Count -gt 1) { $pyArgs = $candidate[1..($candidate.Count - 1)] }
-            break
-        }
-    }
-    # No interpreter: exit quietly. A hook must never break the Cursor session.
-    if (-not $python) { exit 0 }
+    # Pinned by the installer to the interpreter it verified, by absolute path:
+    # re-resolving 'python' here could pick up the Microsoft Store alias, which
+    # would open the Store instead of sending telemetry.
+    $python = '__PY_BIN__'
+    $pyArgs = @(__PY_ARGS__)
+    # Interpreter went missing since install: exit quietly. A hook must never
+    # break the Cursor session.
+    if (-not (Test-Path -LiteralPath $python)) { exit 0 }
 
     $hook = Join-Path $PSScriptRoot 'coralogix_hook.py'
     & $python ($pyArgs + @($hook))
@@ -440,6 +455,10 @@ try {
     exit 0
 }
 '@
+# Single quotes are doubled: PowerShell's escape inside a single-quoted literal,
+# for the rare user profile path that contains an apostrophe.
+$PyArgsLiteral = (($PyPre | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ', ')
+$WrapperPs1Content = $WrapperPs1Content.Replace('__PY_BIN__', $PyExe.Replace("'", "''")).Replace('__PY_ARGS__', $PyArgsLiteral)
 Write-Utf8File $WrapperPs1 $WrapperPs1Content
 Write-Host "Wrapper:        $WrapperPs1"
 
