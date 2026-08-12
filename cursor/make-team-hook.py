@@ -29,6 +29,7 @@ Writes:
 import argparse
 import base64
 import gzip
+import os
 import pathlib
 import sys
 
@@ -150,6 +151,21 @@ exit 0
 """
 
 
+def write_private(path: pathlib.Path, text: str) -> None:
+    """Write a file that contains the API key, readable only by its owner.
+
+    Created with 0600 from the start rather than chmod'ed afterwards, so the key
+    is never briefly world-readable. The chmod covers the case where the file
+    already existed with wider permissions, since O_CREAT does not change the
+    mode of an existing file. On Windows the mode argument is ignored, but the
+    default ACL there already limits the file to the creating user.
+    """
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.chmod(str(path), 0o600)
+
+
 def pack(data: bytes) -> str:
     # mtime=0 so regenerating from the same sources yields a byte-identical body,
     # which keeps dashboard diffs meaningful.
@@ -208,14 +224,17 @@ def main() -> int:
 
     out = pathlib.Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "team-hook.unix.sh").write_text(unix)
-    (out / "team-hook.windows.ps1").write_text(win)
+    # Both bodies embed the API key, so they are credential files: owner-only,
+    # and meant to be deleted once pasted into the dashboard.
+    write_private(out / "team-hook.unix.sh", unix)
+    write_private(out / "team-hook.windows.ps1", win)
 
-    print(f"wrote {out/'team-hook.unix.sh'}      {len(unix):,} chars")
-    print(f"wrote {out/'team-hook.windows.ps1'}  {len(win):,} chars")
+    print(f"wrote {out/'team-hook.unix.sh'}      {len(unix):,} chars  (mode 600)")
+    print(f"wrote {out/'team-hook.windows.ps1'}  {len(win):,} chars  (mode 600)")
     print("\nPaste each into Dashboard > Rules, Commands, Hooks > Hooks > Add:")
     print("  Hook Step         Workspace Open")
     print("  Operating Systems Linux + Macintosh  (unix body) / Windows (ps1 body)")
+    print(f"\nBoth files contain your API key. Delete them once pasted:  rm -rf {out}")
     return 0
 
 

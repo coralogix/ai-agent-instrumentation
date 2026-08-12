@@ -85,6 +85,11 @@ Each one carries `install.sh` (or `install.ps1`) and `hook.py` inside itself,
 gzip + base64. Nothing is downloaded at run time, so locked-down networks are
 fine.
 
+Both files embed your API key. They are written mode `600` (owner-only) and are
+git-ignored, but they are still credential files: delete the output directory
+once you have pasted the bodies into the dashboard, and regenerate when you need
+them again.
+
 ## Step 4 - Add the macOS/Linux hook in the dashboard
 
 Cursor dashboard -> **Rules, Commands, Hooks** -> **Hooks** tab -> **Add**:
