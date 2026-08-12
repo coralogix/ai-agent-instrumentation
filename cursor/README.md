@@ -259,8 +259,6 @@ Send-Your-Data key; this is the same exposure an MDM policy variable has.
 See **[DASHBOARD-DEPLOY.md](DASHBOARD-DEPLOY.md)** for the full runbook:
 prerequisites, region lookup, piloting on a subset of users, machine-side
 verification, upgrading, key rotation, uninstall, and troubleshooting.
-`verify-windows.ps1` checks a Windows install end to end, and
-**[QUERIES.md](QUERIES.md)** has ready DataPrime queries for the resulting spans.
 
 ---
 
