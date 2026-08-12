@@ -37,6 +37,7 @@ Every hook event becomes one span. All spans generated during a session share th
 |---|---|---|
 | **Install script** (`install.sh` on macOS/Linux, `install.ps1` on Windows) | Individual install or org-wide using MDM | CLI flags, env vars, or a `.env` file |
 | **Extension** (`.vsix`) | Individual / GUI | Install in Cursor, enter credentials in Settings UI |
+| **Cursor dashboard** (team hooks) | Org-wide on Cursor Enterprise, without MDM | Paste one generated script in the Cursor admin dashboard |
 
 ---
 
@@ -209,6 +210,57 @@ cd extension
 npm install
 npx vsce package
 ```
+
+---
+
+## Option 3 — Cursor dashboard (Enterprise, no MDM)
+
+On Cursor **Enterprise**, an admin can deploy this integration to the whole team
+from the Cursor dashboard alone. No MDM policy, no per-developer steps, and new
+joiners are covered on their first launch.
+
+A dashboard team hook can only carry a script body: it cannot ship `hook.py`,
+cannot `pip install`, and has no env file. So the script you paste is a
+*bootstrap* that carries `install.sh` (or `install.ps1`) and `hook.py` inside
+itself, gzip + base64, and runs the normal installer once in the background. From
+then on it exits in about 2 ms. Cursor watches `hooks.json` and reloads it
+automatically, so telemetry starts in the same session without a restart.
+
+```
+Cursor dashboard team hook ("Workspace Open")
+      │  cloud-distributed to every team member
+      ▼
+bootstrap body (~17 KB, self-contained, no network fetch)
+      │  first run only, detached
+      ▼
+install.sh / install.ps1  ->  ~/.cursor/hooks/  +  ~/.cursor/hooks.json (18 events)
+```
+
+Generate the two script bodies, then paste them into the dashboard:
+
+```bash
+./make-team-hook.py \
+  --api-key     <your-send-your-data-key> \
+  --endpoint    https://ingress.<your-domain> \
+  --application cursor \
+  --subsystem   cursor-sessions
+```
+
+This writes `out/team-hook.unix.sh` (Linux + macOS) and
+`out/team-hook.windows.ps1` (Windows). In the Cursor dashboard, open
+**Rules, Commands, Hooks -> Hooks -> Add**, set Hook Step to **Workspace Open**,
+paste a body into Script Content, and tick the matching Operating Systems. Two
+entries are needed because one entry carries one script body.
+
+The API key is embedded in the pasted body, so it is stored in Cursor's cloud and
+readable by anyone who can read the dashboard hook. It is an ingest-only
+Send-Your-Data key; this is the same exposure an MDM policy variable has.
+
+See **[DASHBOARD-DEPLOY.md](DASHBOARD-DEPLOY.md)** for the full runbook:
+prerequisites, region lookup, piloting on a subset of users, machine-side
+verification, upgrading, key rotation, uninstall, and troubleshooting.
+`verify-windows.ps1` checks a Windows install end to end, and
+**[QUERIES.md](QUERIES.md)** has ready DataPrime queries for the resulting spans.
 
 ---
 
