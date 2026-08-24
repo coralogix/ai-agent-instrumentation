@@ -14,7 +14,8 @@
 # Claude Code PostToolUse hook that tracks repository names per session (macOS).
 #
 # Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, user_email} on each tool use.
+# {session_id, repository_name, user_email} on each tool use. repository_name is
+# the checkout's `origin` URL, credentials stripped.
 #
 # ZERO runtime assumptions: uses only tools that ship with macOS itself —
 # /bin/sh, plutil (JSON parsing), curl (HTTPS), awk, uname, mktemp. No node, no
@@ -174,20 +175,17 @@ repo_root() { # $1=dir
   git_bounded -C "$1" rev-parse --show-toplevel
 }
 
-repo_name() { # $1=repo root -> owner/repo (or basename fallback)
-  url="$(git_bounded -C "$1" remote get-url origin)"
-  if [ -n "$url" ]; then
-    u="${url%/}"; u="${u%.git}"
-    u="$(printf '%s' "$u" | tr ':' '/')"
-    o="$(basename "$(dirname "$u")")"
-    n="$(basename "$u")"
-    case "$o" in
-      ""|"."|"/") printf '%s' "$n" ;;
-      *)          printf '%s/%s' "$o" "$n" ;;
-    esac
-  else
-    basename "$1"
-  fi
+repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallback)
+  REPO_NAME="$(git_bounded -C "$1" remote get-url origin)"
+  [ -n "$REPO_NAME" ] || REPO_NAME="${1##*/}"
+  # Never label a token; an '@' after the authority belongs to the path.
+  rest="${REPO_NAME#*://}"
+  case "$REPO_NAME" in
+    *://*@*)
+      case "${rest%%/*}" in
+        *@*) REPO_NAME="${REPO_NAME%%://*}://${rest#*@}" ;;
+      esac ;;
+  esac
 }
 
 # JSON-escape a string: backslash and double-quote, plus the control characters
@@ -222,7 +220,7 @@ add_dp() { # $1=repo name
 }
 
 # Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
-# can resolve to the same owner/repo; emit one data point per name).
+# share one origin URL; emit one data point per name).
 ROOTS=""; NAMES=""
 for p in "$EV_CWD" "$FP"; do
   [ -n "$p" ] || continue
@@ -234,12 +232,12 @@ for p in "$EV_CWD" "$FP"; do
   printf '%s\n' "$ROOTS" | grep -Fqx "$root" && continue
   ROOTS="$ROOTS$root
 "
-  name="$(repo_name "$root")"
-  [ -n "$name" ] || continue
-  printf '%s\n' "$NAMES" | grep -Fqx "$name" && continue
-  NAMES="$NAMES$name
+  repo_name "$root"
+  [ -n "$REPO_NAME" ] || continue
+  printf '%s\n' "$NAMES" | grep -Fqx "$REPO_NAME" && continue
+  NAMES="$NAMES$REPO_NAME
 "
-  add_dp "$name"
+  add_dp "$REPO_NAME"
 done
 [ -n "$DPS" ] || add_dp "unknown"
 

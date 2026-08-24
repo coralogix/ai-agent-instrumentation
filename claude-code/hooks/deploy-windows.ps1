@@ -37,7 +37,8 @@ $Content = @'
 # Claude Code PostToolUse hook that tracks repository names per session (Windows).
 #
 # Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, user_email} on each tool use.
+# {session_id, repository_name, user_email} on each tool use. repository_name is
+# the checkout's `origin` URL, credentials stripped.
 #
 # ZERO runtime assumptions: requires only Windows PowerShell 5.1, which ships
 # with every Windows 10/11. No node, no python, no binaries to sign. git is
@@ -205,16 +206,17 @@ try {
 
     function Get-RepoName([string]$Root) {
         $url = Invoke-GitBounded $Root @('remote', 'get-url', 'origin')
-        if ($url) {
-            $u = ([string]$url).Trim().TrimEnd('/')
-            if ($u.EndsWith('.git')) { $u = $u.Substring(0, $u.Length - 4) }
-            # @(...) forces an array so a single segment is not unwrapped to a
-            # scalar string (whose [-1] would index the last character).
-            $parts = @(($u -replace ':', '/') -split '/' | Where-Object { $_ -ne '' })
-            if ($parts.Count -ge 2) { return ($parts[-2] + '/' + $parts[-1]) }
-            if ($parts.Count -eq 1) { return $parts[0] }
+        $u = if ($url) { ([string]$url).Trim() } else { Split-Path -Leaf $Root }
+        # Never label a token; an '@' after the authority belongs to the path.
+        $schemeEnd = $u.IndexOf('://')
+        if ($schemeEnd -ge 0) {
+            $rest = $u.Substring($schemeEnd + 3)
+            $pathStart = $rest.IndexOf('/')
+            $authority = if ($pathStart -ge 0) { $rest.Substring(0, $pathStart) } else { $rest }
+            $at = $authority.IndexOf('@')
+            if ($at -ge 0) { $u = $u.Substring(0, $schemeEnd + 3) + $rest.Substring($at + 1) }
         }
-        return (Split-Path -Leaf $Root)
+        return $u
     }
 
     $nowNs = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() * 1000000000).ToString()
@@ -228,7 +230,7 @@ try {
     }
 
     # Dedupe by repo root AND by resolved name (a linked worktree resolves to a
-    # different root but the same owner/repo; emit one data point per name).
+    # different root but the same origin URL; emit one data point per name).
     $dps = @()
     $seenRoots = @(); $seenNames = @()
     foreach ($p in @($cwd, $fp)) {

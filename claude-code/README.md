@@ -226,6 +226,7 @@ No credentials appear in the `command` — the endpoint, key, and resource attri
 - **macOS** (`hooks/claude.sh`): uses only tools that ship with macOS itself — `/bin/sh`, `plutil` (JSON parsing), `curl` (HTTPS). Works under GUI-launched Claude Code with a bare-bones `PATH`.
 - **Windows** (`hooks/claude.ps1`): requires only Windows PowerShell 5.1, which ships with every Windows 10/11.
 - `git` is optional on both: without it (or on a Mac without Command Line Tools, where the hook deliberately avoids the `/usr/bin/git` stub that would pop an install dialog), `repository_name` degrades to `unknown`.
+- `repository_name` is the checkout's `origin` URL as `git remote get-url origin` reports it — `https://dev.azure.com/{org}/{project}/_git/{repo}`, `git@github.com:owner/repo.git` — with any embedded credentials stripped; Coralogix AI Center resolves it to a per-provider display identity. A checkout with no `origin` remote reports its directory name.
 - Metrics are sent as **OTLP/JSON** (`Content-Type: application/json`) to the same `/v1/metrics` ingress endpoint — semantically identical to the protobuf encoding, but buildable with OS-native tools.
 
 **How the OS disambiguation works:** Claude Code executes hook commands through `sh` on macOS and **Git Bash** on Windows, so a single `case "$(uname -s)"` branches both — `Darwin` runs the sh hook, `MINGW*/MSYS*` runs PowerShell with the ps1 hook, anything else is a silent no-op. Each branch guards on the hook file existing (`[ -x … ]` / `[ -f … ]`) and otherwise exits 0, so during rollout — when the managed settings can reach a machine before the MDM policy has staged the hook file — the command is a clean no-op instead of a per-tool-use error. Deploy targets:
@@ -286,6 +287,7 @@ The following fields may contain sensitive data:
 - `user.account_uuid` — present on all events
 - `organization.id` — present on all events
 - `error message` (`claude_code.api_error`) — present on API failures; contents not fully documented and may include fragments of the failed request
+- `repository_name` (`claude_code_session_repo_info`, repo-tracker hook) — the checkout's `origin` URL, so it exposes the internal host of a self-hosted Git server. Any `user:token@` userinfo is stripped before the metric is sent, and a checkout with no remote reports its directory name instead
 
 To drop a field entirely before it is indexed, use a [Coralogix Parsing Rule](https://coralogix.com/docs/log-parsing-rules/) with the **Remove Field** action.
 
