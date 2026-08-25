@@ -1,0 +1,28 @@
+# Registration for the Coralogix Codex repository-tracking hook.
+#
+# Merge this into the SAME config.toml that carries the [otel] blocks — the
+# user's ~/.codex/config.toml for a per-developer setup, or the managed
+# defaults file for a fleet (/etc/codex/managed_config.toml on macOS/Linux,
+# %ProgramData%\OpenAI\Codex\config.toml on Windows, or the macOS
+# config_toml_base64 MDM payload). Hooks shipped through a managed layer are
+# auto-trusted; a hook added to the user's own config.toml must be trusted
+# once via /hooks inside Codex before it runs.
+#
+# Deploy the scripts first (the command no-ops when the script is absent):
+#   macOS/Linux: hooks/codex.sh  -> /usr/local/bin/codex.sh   (chmod 755)
+#   Windows:     hooks/codex.ps1 -> C:\ProgramData\Coralogix\codex\codex.ps1
+#
+# Codex runs `command` through `$SHELL -lc` (fallback /bin/sh) on macOS/Linux
+# and `commandWindows` through `cmd.exe /C` on Windows; the PostToolUse event
+# JSON arrives on the hook's stdin. `async = true` (Codex >= 0.148) keeps the
+# turn from waiting on the upload.
+
+[[hooks.PostToolUse]]
+
+  [[hooks.PostToolUse.hooks]]
+  type = "command"
+  command = '[ -x /usr/local/bin/codex.sh ] && exec /bin/sh /usr/local/bin/codex.sh; exit 0'
+  commandWindows = 'if exist "C:\ProgramData\Coralogix\codex\codex.ps1" (powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\Coralogix\codex\codex.ps1")'
+  async = true
+  timeout = 30
+  statusMessage = "Reporting repository attribution to Coralogix"
