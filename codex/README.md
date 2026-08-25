@@ -158,3 +158,48 @@ A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
 | **Traces** | Slowest spans · span count by operation · avg + max duration per operation |
 
 Log panels filter by `$d.resource.attributes['service.name'] == 'codex_cli_rs'`, which is stable across all client versions and works regardless of which application/subsystem the logs are routed to. Trace panels filter by `$d.serviceName == 'codex_cli_rs'`.
+
+---
+
+## Repository tracking hook
+
+Codex's native telemetry does not report which Git repository a session touched. The `hooks/` directory adds that dimension the same way the Claude Code repo-tracker does: a `PostToolUse` lifecycle hook that resolves the Git repository for the turn's working directory and reports it to Coralogix as an OTLP gauge metric:
+
+```
+codex_session_repo_info{session_id, repository_name, user_email} = 1
+```
+
+- `session_id` is the Codex thread id — it joins with `conversation.id` on Codex OTel log events.
+- `repository_name` is the checkout's `origin` URL with credentials stripped (directory basename when there is no remote; `unknown` outside a repository).
+- `user_email` is decoded from the ChatGPT `id_token` in `~/.codex/auth.json`; it is empty for API-key sign-in.
+
+### Requirements
+
+- Codex CLI `>= 0.149` (lifecycle hooks stable; `async` handlers since `0.148`).
+- **CLI only.** Hook execution in the IDE extension and the ChatGPT desktop app is unreliable today (see openai/codex issues [#18090](https://github.com/openai/codex/issues/18090), [#33413](https://github.com/openai/codex/issues/33413)).
+- The `[otel.metrics_exporter.otlp-http]` block from `config.toml.example` — the hook reuses its endpoint and `Authorization`/`CX-*` headers, so there are no separate hook credentials.
+- `git` is optional: without it every session reports `repository_name="unknown"`. All git calls are bounded to 5s.
+- Zero extra runtime: `/bin/sh` + `curl` + `awk` on macOS/Linux (plutil used when present), Windows PowerShell 5.1 on Windows.
+
+### Install
+
+1. Deploy the script to a stable path:
+   - macOS/Linux: `hooks/codex.sh` → `/usr/local/bin/codex.sh`, mode `755`.
+   - Windows: `hooks/codex.ps1` → `C:\ProgramData\Coralogix\codex\codex.ps1`.
+2. Merge `hooks/hooks-config.example.toml` into the same `config.toml` that carries the `[otel]` blocks — the user's `~/.codex/config.toml`, or the managed defaults layer for a fleet (`/etc/codex/managed_config.toml`, `%ProgramData%\OpenAI\Codex\config.toml`, or the macOS `config_toml_base64` MDM payload).
+3. Trust the hook. Hooks shipped through a managed layer are auto-trusted; a hook added to the user's own `config.toml` must be approved once via `/hooks` inside Codex.
+4. Run a turn, then check Coralogix Metrics Explorer for `codex_session_repo_info`.
+
+The registration deliberately guards on the script's existence, so rolling out the config before the script (or vice versa) no-ops cleanly instead of erroring in sessions.
+
+### Test locally
+
+`hooks/test-hook-local.sh` spawns the hook exactly like Codex does (`sh -lc`, event JSON on stdin) with a unique `session_id` marker and prints the metric query to confirm delivery:
+
+```bash
+./hooks/test-hook-local.sh
+```
+
+### Privacy
+
+The hook sends exactly three label values per data point: the session id, the credential-stripped repository URL, and the account email. Prompt text, file contents, and tool output never leave the machine through this hook.
