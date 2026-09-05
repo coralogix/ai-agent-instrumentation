@@ -16,7 +16,7 @@
 
 set -a
 # shellcheck source=.env
-source "$(dirname "${BASH_SOURCE[0]}")/.env"
+source "$(dirname "${BASH_SOURCE[0]:-$0}")/.env"
 set +a
 
 # ── Claude Code telemetry toggle ──────────────────────────────────────────────
