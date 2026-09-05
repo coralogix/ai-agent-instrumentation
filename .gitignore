@@ -1,6 +1,11 @@
 # Credentials
 .env
 
+# Generated Cursor team-hook bodies: they embed a Send-Your-Data API key
+cursor/out/
+team-hook.unix.sh
+team-hook.windows.ps1
+
 # Python
 __pycache__/
 *.pyc
