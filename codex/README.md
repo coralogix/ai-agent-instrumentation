@@ -151,6 +151,15 @@ codex_session_repo_info{session_id, repository_name}
 
 where `repository_name` is the checkout's `origin` URL (any `user:token@` userinfo stripped; a checkout with no remote reports its directory name, no git at all reports `unknown`). `session_id` equals the `conversation.id` on Codex's own log events (`codex.api_request`, `codex.sse_event`, …), so per-user or per-model repo breakdowns are a join on that id — the metric itself carries no user identity.
 
+Since 1.1 the hook also counts, per (session × repo), cumulatively:
+
+```
+codex_session_commits{session_id, repository_name}
+codex_session_prs_opened{session_id, repository_name}
+```
+
+**Commits are verified against git, never parsed out of command text**: the hook keeps the last `HEAD` it saw for the session in a private temp state file, and when `HEAD` has advanced linearly since (`merge-base --is-ancestor`), it adds the new commits authored by the machine's own `git config user.email`. A branch switch or rebase re-baselines without counting; a pull adds none of other people's commits; a commit made as the session's very last action has no later tool call to be seen from and is missed — the count understates, never invents. **PRs count only on proof**: the tool command contains `gh pr create` and the tool response carries the `/pull/<n>` URL gh prints on success — an attempt that failed counts nothing, and a PR opened outside `gh` is invisible. Both totals are emitted on every tool call, zeros included: the series' presence is what lets a reader tell "measured, none" apart from "session ran an older hook". Counts only — no message, branch, or file ever rides a label.
+
 **Zero runtime assumptions**, same design as the [Claude Code repo-tracker](../claude-code/README.md#repo-tracker-hook-macos--windows): only tools that ship with macOS (`/bin/sh`, `plutil`, `awk`, `curl`), `git` optional, every git call bounded to 5s, all errors swallowed — the hook can never disturb or stall a session.
 
 **No extra secrets:** the hook reads the same `~/.codex/config.toml` `[otel.exporter.otlp-http]` block installed in Setup above — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers. `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` flags exist for manual testing.

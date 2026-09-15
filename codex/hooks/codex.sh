@@ -147,6 +147,10 @@ EV_CWD="$(get_ev cwd)"
 FP="$(get_ev tool_input.file_path)"
 [ -n "$FP" ] || FP="$(get_ev tool_input.path)"
 [ -n "$EV_CWD$FP" ] || exit 0
+# For the PR counter only — see track_counts. Both may be empty or huge; they
+# are grepped, never executed or shipped anywhere.
+EV_CMD="$(get_ev tool_input.command)"
+EV_RESP="$(get_ev tool_response)"
 
 # ---------------------------------------------------------------------------
 # Repo detection (git optional; avoid the /usr/bin/git CLT stub, which pops a
@@ -198,6 +202,68 @@ repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallbac
   esac
 }
 
+# ---------------------------------------------------------------------------
+# Commit / PR counting (per session x repo, cumulative)
+#
+# Commits are VERIFIED against git, never parsed out of command text: the hook
+# keeps the last HEAD it saw for this (session, repo) in a state file, and when
+# HEAD has advanced LINEARLY since (merge-base --is-ancestor), the new commits
+# authored by this machine's own git identity are added to the running total.
+# A branch switch or rebase moves HEAD non-linearly and only re-baselines; a
+# pull counts nothing of other people's work thanks to the author filter. A
+# commit made as the session's very last action has no later tool call to be
+# seen from and is missed - understated, never invented.
+#
+# PRs count only on proof: the tool command contains `gh pr create` AND the
+# tool response carries the pull-request URL gh prints on success.
+#
+# Totals are emitted EVERY time, zeros included: the series' presence is what
+# tells a reader "this session was measured and had none" apart from "the
+# session ran an older hook that could not count".
+# ---------------------------------------------------------------------------
+STATE_DIR="${TMPDIR:-/tmp}/cx-codex-repo-tracker"
+mkdir -p "$STATE_DIR" 2>/dev/null
+chmod 700 "$STATE_DIR" 2>/dev/null
+# Opportunistic cleanup; sessions do not outlive days of inactivity.
+find "$STATE_DIR" -type f -mtime +2 -delete 2>/dev/null
+
+COMMITS=0; PRS=0
+
+track_counts() { # $1=repo root; uses SID, EV_CMD, EV_RESP; sets COMMITS, PRS
+  _key="$(printf '%s|%s' "$SID" "$1" | tr -c 'A-Za-z0-9' '_' | cut -c1-200)"
+  _sf="$STATE_DIR/$_key"
+  _head="$(git_bounded -C "$1" rev-parse HEAD)" || _head=""
+  _prev=""; COMMITS=0; PRS=0
+  if [ -f "$_sf" ]; then
+    _prev="$(sed -n '1p' "$_sf" 2>/dev/null)"
+    COMMITS="$(sed -n '2p' "$_sf" 2>/dev/null)"; COMMITS="${COMMITS:-0}"
+    PRS="$(sed -n '3p' "$_sf" 2>/dev/null)"; PRS="${PRS:-0}"
+  fi
+
+  if [ -n "$_head" ] && [ -n "$_prev" ] && [ "$_head" != "$_prev" ] &&
+     git_bounded -C "$1" merge-base --is-ancestor "$_prev" "$_head" >/dev/null; then
+    _author="$(git_bounded -C "$1" config user.email)"
+    if [ -n "$_author" ]; then
+      _new="$(git_bounded -C "$1" rev-list --count --author="$_author" "$_prev..$_head")"
+    else
+      _new="$(git_bounded -C "$1" rev-list --count "$_prev..$_head")"
+    fi
+    case "$_new" in
+      ''|*[!0-9]*) _new=0 ;;
+    esac
+    COMMITS=$((COMMITS + _new))
+  fi
+
+  case "$EV_CMD" in
+    *"gh pr create"*)
+      case "$EV_RESP" in
+        */pull/[0-9]*) PRS=$((PRS + 1)) ;;
+      esac ;;
+  esac
+
+  { printf '%s\n' "${_head:-$_prev}"; printf '%s\n' "$COMMITS"; printf '%s\n' "$PRS"; } > "$_sf" 2>/dev/null
+}
+
 # JSON-escape a string: backslash and double-quote, plus the control characters
 # (tab, CR, LF) that would otherwise produce invalid JSON. awk processes the
 # whole value (sed is line-oriented and can't see embedded newlines).
@@ -222,11 +288,16 @@ json_escape() {
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
 
-DPS=""
+DPS=""; COMMIT_DPS=""; PR_DPS=""
+count_dp() { # $1=repo name  $2=count -> echoes one datapoint
+  printf '%s' "{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"$2\"}"
+}
 add_dp() { # $1=repo name
-  r_e="$(json_escape "$1")"
-  dp="{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$r_e\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
-  DPS="${DPS:+$DPS,}$dp"
+  DPS="${DPS:+$DPS,}$(count_dp "$1" 1)"
+}
+add_count_dps() { # $1=repo name; uses COMMITS/PRS from track_counts
+  COMMIT_DPS="${COMMIT_DPS:+$COMMIT_DPS,}$(count_dp "$1" "$COMMITS")"
+  PR_DPS="${PR_DPS:+$PR_DPS,}$(count_dp "$1" "$PRS")"
 }
 
 # Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
@@ -248,12 +319,19 @@ for p in "$EV_CWD" "$FP"; do
   NAMES="$NAMES$REPO_NAME
 "
   add_dp "$REPO_NAME"
+  # Commit/PR totals only for the repo the command RAN in - a file-path root
+  # names where an edit landed, not where git state moved.
+  [ "$p" = "$EV_CWD" ] && { track_counts "$root"; add_count_dps "$REPO_NAME"; }
 done
 [ -n "$DPS" ] || add_dp "unknown"
 
 RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"codex-hook\"}}"
 
-PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.0.0\"},\"metrics\":[{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}]}]}]}"
+METRICS="{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}"
+[ -n "$COMMIT_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_commits\",\"gauge\":{\"dataPoints\":[$COMMIT_DPS]}}"
+[ -n "$PR_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_prs_opened\",\"gauge\":{\"dataPoints\":[$PR_DPS]}}"
+
+PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.1.0\"},\"metrics\":[$METRICS]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session).
