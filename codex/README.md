@@ -226,6 +226,8 @@ The hook swallows all errors and exits 0 by design, so exit 0 does **not** prove
 
 A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
 
+Temporary branch verification line.
+
 **To import:**
 1. In your Coralogix tenant go to **Dashboards → New Dashboard**
 2. Click the menu icon → **Import from JSON**
