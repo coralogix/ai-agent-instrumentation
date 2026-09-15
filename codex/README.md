@@ -13,6 +13,7 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 
 - `config.toml.example` — the OTel block to merge into your Codex config
 - `.env.example` — stores your Coralogix credentials (git-ignored)
+- `hooks/` — a PostToolUse hook that adds the one signal Codex's OTel omits: which repository each session worked in (see [Repo-tracker hook](#repo-tracker-hook-macos))
 - `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
 Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool_decision`, etc.) are available as structured fields on log events via the `exporter` pipeline.
@@ -140,6 +141,78 @@ See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advance
 
 ---
 
+## Repo-tracker hook (macOS)
+
+Codex's native OTel events never say **which repository** a session worked in. The [`hooks/codex.sh`](hooks/codex.sh) PostToolUse hook fills that gap: on each tool use it emits an OTLP/JSON gauge metric
+
+```
+codex_session_repo_info{session_id, repository_name}
+```
+
+where `repository_name` is the checkout's `origin` URL (any `user:token@` userinfo stripped; a checkout with no remote reports its directory name, no git at all reports `unknown`). `session_id` equals the `conversation.id` on Codex's own log events (`codex.api_request`, `codex.sse_event`, …), so per-user or per-model repo breakdowns are a join on that id — the metric itself carries no user identity.
+
+**Zero runtime assumptions**, same design as the [Claude Code repo-tracker](../claude-code/README.md#repo-tracker-hook-macos--windows): only tools that ship with macOS (`/bin/sh`, `plutil`, `awk`, `curl`), `git` optional, every git call bounded to 5s, all errors swallowed — the hook can never disturb or stall a session.
+
+**No extra secrets:** the hook reads the same `~/.codex/config.toml` `[otel.exporter.otlp-http]` block installed in Setup above — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers. `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` flags exist for manual testing.
+
+### Install
+
+```bash
+sudo cp hooks/codex.sh /usr/local/bin/codex-repo-tracker.sh
+sudo chmod 755 /usr/local/bin/codex-repo-tracker.sh
+```
+
+Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json) into `~/.codex/hooks.json` (create the file if it doesn't exist):
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -x /usr/local/bin/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/bin/codex-repo-tracker.sh; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Schema gotchas (all four break silently or with a cryptic error): event names are **PascalCase** (`PostToolUse`), `matcher` must be a valid **regex** (`".*"`, not `"*"`), the timeout key is **`timeout`** (seconds), and the file is `~/.codex/hooks.json` — not a key inside `config.toml`.
+
+### Approve the hook (Codex's trust model)
+
+Unlike Claude Code — where an MDM-managed settings file activates hooks fleet-wide — Codex requires **each user to approve hooks interactively**. On the next `codex` run after editing `hooks.json` you'll see `PostToolUse hooks · N hooks need review`; review and approve.
+
+Approval state lives in `~/.codex/config.toml` under `[hooks.state]`, keyed by hook source, with **two separate flags**:
+
+```toml
+[hooks.state."/Users/you/.codex/hooks.json:post_tool_use:0:0"]
+trusted_hash = "sha256:…"
+enabled = true
+```
+
+A hook can be *trusted yet disabled* (`enabled = false`) — a silent no-op that looks exactly like a broken hook. If the metric never arrives, check this flag first. Any edit to `hooks.json` changes the hash and re-triggers the review prompt.
+
+Verified on Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alpha.4.1 — both deliver the full PostToolUse event (`session_id`, `cwd`, `tool_input`, …) to the hook.
+
+### Test locally
+
+[`hooks/test-hook-local.sh`](hooks/test-hook-local.sh) spawns the hook exactly the way Codex does (`sh -c` + the event JSON on stdin, field shape captured from a live 0.149 session) and prints a unique `session_id` marker to look up in Coralogix:
+
+```bash
+./hooks/test-hook-local.sh
+```
+
+The hook swallows all errors and exits 0 by design, so exit 0 does **not** prove delivery — confirm with the printed `codex_session_repo_info{session_id="localtest-…"}` query.
+
+---
+
 ## Dashboard
 
 A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
@@ -158,48 +231,3 @@ A pre-built dashboard is included at `coralogix-codex-dashboard.json`.
 | **Traces** | Slowest spans · span count by operation · avg + max duration per operation |
 
 Log panels filter by `$d.resource.attributes['service.name'] == 'codex_cli_rs'`, which is stable across all client versions and works regardless of which application/subsystem the logs are routed to. Trace panels filter by `$d.serviceName == 'codex_cli_rs'`.
-
----
-
-## Repository tracking hook
-
-Codex's native telemetry does not report which Git repository a session touched. The `hooks/` directory adds that dimension the same way the Claude Code repo-tracker does: a `PostToolUse` lifecycle hook that resolves the Git repository for the turn's working directory and reports it to Coralogix as an OTLP gauge metric:
-
-```
-codex_session_repo_info{session_id, repository_name, user_email} = 1
-```
-
-- `session_id` is the Codex thread id — it joins with `conversation.id` on Codex OTel log events.
-- `repository_name` is the checkout's `origin` URL with credentials stripped (directory basename when there is no remote; `unknown` outside a repository).
-- `user_email` is decoded from the ChatGPT `id_token` in `~/.codex/auth.json`; it is empty for API-key sign-in.
-
-### Requirements
-
-- Codex CLI `>= 0.149` (lifecycle hooks stable; `async` handlers since `0.148`).
-- **CLI only.** Hook execution in the IDE extension and the ChatGPT desktop app is unreliable today (see openai/codex issues [#18090](https://github.com/openai/codex/issues/18090), [#33413](https://github.com/openai/codex/issues/33413)).
-- The `[otel.metrics_exporter.otlp-http]` block from `config.toml.example` — the hook reuses its endpoint and `Authorization`/`CX-*` headers, so there are no separate hook credentials.
-- `git` is optional: without it every session reports `repository_name="unknown"`. All git calls are bounded to 5s.
-- Zero extra runtime: `/bin/sh` + `curl` + `awk` on macOS/Linux (plutil used when present), Windows PowerShell 5.1 on Windows.
-
-### Install
-
-1. Deploy the script to a stable path:
-   - macOS/Linux: `hooks/codex.sh` → `/usr/local/bin/codex.sh`, mode `755`.
-   - Windows: `hooks/codex.ps1` → `C:\ProgramData\Coralogix\codex\codex.ps1`.
-2. Merge `hooks/hooks-config.example.toml` into the same `config.toml` that carries the `[otel]` blocks — the user's `~/.codex/config.toml`, or the managed defaults layer for a fleet (`/etc/codex/managed_config.toml`, `%ProgramData%\OpenAI\Codex\config.toml`, or the macOS `config_toml_base64` MDM payload).
-3. Trust the hook. Hooks shipped through a managed layer are auto-trusted; a hook added to the user's own `config.toml` must be approved once via `/hooks` inside Codex.
-4. Run a turn, then check Coralogix Metrics Explorer for `codex_session_repo_info`.
-
-The registration deliberately guards on the script's existence, so rolling out the config before the script (or vice versa) no-ops cleanly instead of erroring in sessions.
-
-### Test locally
-
-`hooks/test-hook-local.sh` spawns the hook exactly like Codex does (`sh -lc`, event JSON on stdin) with a unique `session_id` marker and prints the metric query to confirm delivery:
-
-```bash
-./hooks/test-hook-local.sh
-```
-
-### Privacy
-
-The hook sends exactly three label values per data point: the session id, the credential-stripped repository URL, and the account email. Prompt text, file contents, and tool output never leave the machine through this hook.

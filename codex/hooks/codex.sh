@@ -11,34 +11,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Codex PostToolUse hook that tracks repository names per session (macOS/Linux).
+# Codex CLI PostToolUse hook that tracks repository names per session (macOS).
 #
 # Emits an OTLP/JSON gauge metric codex_session_repo_info with labels
-# {session_id, repository_name, user_email} on each tool use. session_id is the
-# Codex thread id (joins with conversation.id on Codex OTel log events);
-# repository_name is the checkout's `origin` URL, credentials stripped.
+# {session_id, repository_name} on each tool use. repository_name is the
+# checkout's `origin` URL, credentials stripped. session_id equals the
+# conversation.id on Codex's own OTel log events (codex.api_request,
+# codex.sse_event, ...), which carry user.email — so user attribution is a
+# join, not another label on this metric.
 #
-# ZERO runtime assumptions: /bin/sh, curl, awk, sed, mktemp — all ship with
-# macOS and every mainstream Linux. plutil is used for JSON parsing when
-# present (macOS), with a sed fallback elsewhere. No node, no python. git is
-# optional: repo detection degrades to "unknown" without it, and every git
-# call is bounded to 5s so a stale mount can never hang the session.
+# ZERO runtime assumptions: uses only tools that ship with macOS itself —
+# /bin/sh, plutil (JSON parsing), awk (TOML parsing), curl (HTTPS), mktemp.
+# No node, no python, no binaries to sign. git is optional: repo detection
+# degrades to "unknown" without it, and every git call is bounded to 5s so a
+# stale mount can never hang the session.
 #
-# Config is read from the same Codex TOML files that hold the [otel] blocks,
-# reusing the metrics exporter's endpoint and headers — no separate hook
-# credentials:
-#   [otel.metrics_exporter.otlp-http]          endpoint
-#   [otel.metrics_exporter.otlp-http.headers]  "Authorization",
-#                                              "CX-Application-Name",
-#                                              "CX-Subsystem-Name"
-# File precedence (first non-empty value per key): --config-file, the macOS
-# managed preference com.openai.codex/config_toml_base64, then
-# /etc/codex/managed_config.toml, then $CODEX_HOME/config.toml (~/.codex).
-#
-# user_email is decoded from the ChatGPT id_token in $CODEX_HOME/auth.json;
-# it stays empty for API-key sign-in (Codex hook events carry no email field).
-# Optional flags (manual testing): --config-file, --auth-file,
-# --otlp-endpoint, --authorization.
+# Config comes from the same ~/.codex/config.toml [otel] block this repo's
+# codex/config.toml.example installs — one config serves Codex's native
+# telemetry and this hook, with no duplicated secrets:
+#   [otel.exporter.otlp-http]          endpoint  (the /v1/logs suffix is
+#                                       swapped for /v1/metrics)
+#   [otel.exporter.otlp-http.headers]  Authorization, CX-Application-Name,
+#                                       CX-Subsystem-Name
+# CX_* environment variables (CX_OTLP_ENDPOINT / CX_API_KEY /
+# CX_APPLICATION_NAME / CX_SUBSYSTEM_NAME — the same names codex/.env.example
+# uses) are read as fallbacks for machines that configure Codex differently.
+# Optional flags (manual testing): --config-file, --otlp-endpoint,
+# --otlp-auth, --application-name, --subsystem-name.
 
 # ---------------------------------------------------------------------------
 # Small helpers
@@ -50,145 +49,114 @@ trim() { # strip leading/trailing whitespace
 # ---------------------------------------------------------------------------
 # Flags
 # ---------------------------------------------------------------------------
-CONFIG_FILE=""; AUTH_FILE=""; F_EP=""; F_AUTH=""
+CFG="$HOME/.codex/config.toml"
+F_EP=""; F_AUTH=""; F_APP=""; F_SUB=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --config-file=*)    CONFIG_FILE="${1#*=}" ;;
-    --config-file)      shift; CONFIG_FILE="${1:-}" ;;
-    --auth-file=*)      AUTH_FILE="${1#*=}" ;;
-    --auth-file)        shift; AUTH_FILE="${1:-}" ;;
-    --otlp-endpoint=*)  F_EP="${1#*=}" ;;
-    --otlp-endpoint)    shift; F_EP="${1:-}" ;;
-    --authorization=*)  F_AUTH="${1#*=}" ;;
-    --authorization)    shift; F_AUTH="${1:-}" ;;
+    --config-file=*)       CFG="${1#*=}" ;;
+    --config-file)         shift; CFG="${1:-}" ;;
+    --otlp-endpoint=*)     F_EP="${1#*=}" ;;
+    --otlp-endpoint)       shift; F_EP="${1:-}" ;;
+    --otlp-auth=*)         F_AUTH="${1#*=}" ;;
+    --otlp-auth)           shift; F_AUTH="${1:-}" ;;
+    --application-name=*)  F_APP="${1#*=}" ;;
+    --application-name)    shift; F_APP="${1:-}" ;;
+    --subsystem-name=*)    F_SUB="${1#*=}" ;;
+    --subsystem-name)      shift; F_SUB="${1:-}" ;;
   esac
   [ $# -gt 0 ] && shift
 done
 
-CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
-HAVE_PLUTIL=0
-command -v plutil >/dev/null 2>&1 && HAVE_PLUTIL=1
-
 # ---------------------------------------------------------------------------
-# JSON field extraction: plutil when available (macOS), sed fallback (Linux).
-# The fallback matches the first `"key": "value"` pair in the file — fine for
-# the flat identifier fields this hook reads (UUIDs, paths, JWTs).
+# Config resolution: flags > ~/.codex/config.toml > CX_* environment
 # ---------------------------------------------------------------------------
-json_get() { # $1=file $2=plutil keypath $3=bare key for the sed fallback
-  [ -f "$1" ] || return 1
-  if [ "$HAVE_PLUTIL" = 1 ]; then
-    plutil -extract "$2" raw -o - "$1" 2>/dev/null
-  else
-    sed -n 's/.*"'"$3"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$1" 2>/dev/null | head -n 1
-  fi
-}
-
-# ---------------------------------------------------------------------------
-# Minimal TOML lookup: first `key = "value"` under an exact [section] header.
-# Handles quoted and bare keys, basic ("...") and literal ('...') strings —
-# the shapes the documented Coralogix template uses.
-# ---------------------------------------------------------------------------
-toml_get() { # $1=file $2=section $3=key
-  [ -f "$1" ] || return 1
-  awk -v want="$2" -v key="$3" -v sq="'" '
-    /^[ \t]*\[/ {
+# Minimal TOML reader for the documented [otel.exporter.otlp-http] shape:
+# tracks the current [section] (quotes in section parts ignored, so
+# [otel.exporter."otlp-http"] matches too) and prints the first `key = "value"`
+# in it. Quoted values are taken up to the closing quote, which also drops any
+# trailing comment. Deliberately not a general TOML parser — anything it cannot
+# read falls through to the CX_* environment fallbacks.
+toml_get() { # $1=section path  $2=key -> value on stdout (empty if absent)
+  [ -f "$CFG" ] || return 0
+  awk -v sect="$1" -v key="$2" '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*\[/ {
       s = $0
-      sub(/^[ \t]*\[+/, "", s); sub(/\]+[ \t]*(#.*)?$/, "", s)
-      insec = (s == want); next
+      sub(/^[[:space:]]*\[+/, "", s); sub(/\]+.*$/, "", s)
+      gsub(/"/, "", s); gsub(/[[:space:]]/, "", s)
+      cur = s; next
     }
-    insec {
+    cur == sect && /=/ {
       line = $0
-      sub(/^[ \t]*/, "", line)
-      if (line !~ /=/) next
+      sub(/^[[:space:]]*/, "", line)
       k = line
-      sub(/[ \t]*=.*$/, "", k)
+      sub(/[[:space:]]*=.*$/, "", k)
       gsub(/^"|"$/, "", k)
       if (k != key) next
       v = line
-      sub(/^[^=]*=[ \t]*/, "", v)
-      if (v ~ /^"/)       { sub(/^"/, "", v);  sub(/".*$/, "", v) }
-      else if (v ~ "^" sq) { sub("^" sq, "", v); sub(sq ".*$", "", v) }
-      else                { sub(/[ \t]*(#.*)?$/, "", v) }
+      sub(/^[^=]*=[[:space:]]*/, "", v)
+      if (v ~ /^"/) {
+        # Basic string: take up to the closing quote, honouring \" escapes,
+        # then unescape. Also drops any trailing comment.
+        if (match(v, /^"(\\.|[^"\\])*"/)) {
+          v = substr(v, 2, RLENGTH - 2)
+          gsub(/\\"/, "\"", v); gsub(/\\\\/, "\\", v)
+        } else { sub(/^"/, "", v); sub(/".*$/, "", v) }
+      }
+      else if (v ~ /^'\''/) { sub(/^'\''/, "", v); sub(/'\''.*$/, "", v) }
+      else { sub(/[[:space:]]*#.*$/, "", v) }
+      sub(/[[:space:]]*$/, "", v)
       print v; exit
-    }' "$1" 2>/dev/null
+    }
+  ' "$CFG" 2>/dev/null
 }
 
-# ---------------------------------------------------------------------------
-# Config file candidates, highest precedence first (mirrors the Codex loader:
-# macOS MDM payload > /etc/codex/managed_config.toml > user config.toml).
-# ---------------------------------------------------------------------------
-b64_decode() { # portable base64 decode (GNU -d / older macOS -D)
-  base64 -d 2>/dev/null || base64 -D 2>/dev/null
-}
+EP="$F_EP"
+[ -n "$EP" ] || EP="$(toml_get otel.exporter.otlp-http endpoint)"
+[ -n "$EP" ] || EP="$CX_OTLP_ENDPOINT"
 
-MDM_TMP=""
-if [ "$HAVE_PLUTIL" = 1 ]; then
-  _b64="$(plutil -extract config_toml_base64 raw -o - \
-    "/Library/Managed Preferences/com.openai.codex.plist" 2>/dev/null)"
-  if [ -n "$_b64" ]; then
-    MDM_TMP="$(mktemp "${TMPDIR:-/tmp}/cx-codex-mdm.XXXXXX")" 2>/dev/null &&
-      printf '%s' "$_b64" | b64_decode > "$MDM_TMP" 2>/dev/null
-  fi
-fi
+AUTH="$F_AUTH"
+[ -n "$AUTH" ] || AUTH="$(toml_get otel.exporter.otlp-http.headers Authorization)"
+[ -n "$AUTH" ] || { [ -n "$CX_API_KEY" ] && AUTH="Bearer $CX_API_KEY"; }
 
-cfg_get() { # $1=section $2=key — first non-empty value across the candidates
-  for f in "$CONFIG_FILE" "$MDM_TMP" "/etc/codex/managed_config.toml" "$CODEX_HOME/config.toml"; do
-    [ -n "$f" ] || continue
-    v="$(toml_get "$f" "$1" "$2")" && [ -n "$v" ] && { printf '%s' "$v"; return 0; }
-  done
-  return 0
-}
-
-MSEC="otel.metrics_exporter.otlp-http"
-EP="${F_EP:-$(cfg_get "$MSEC" endpoint)}"
-AUTH="${F_AUTH:-$(cfg_get "$MSEC.headers" Authorization)}"
-APP="$(cfg_get "$MSEC.headers" CX-Application-Name)"
-SUB="$(cfg_get "$MSEC.headers" CX-Subsystem-Name)"
-[ -n "$MDM_TMP" ] && rm -f "$MDM_TMP"
 [ -n "$EP" ] && [ -n "$AUTH" ] || exit 0
 
+# Application/subsystem are stamped only when explicitly configured; otherwise
+# routing falls to the API key's admin-panel configuration.
+APP="$F_APP"
+[ -n "$APP" ] || APP="$(toml_get otel.exporter.otlp-http.headers CX-Application-Name)"
+[ -n "$APP" ] || APP="$CX_APPLICATION_NAME"
+SUB="$F_SUB"
+[ -n "$SUB" ] || SUB="$(toml_get otel.exporter.otlp-http.headers CX-Subsystem-Name)"
+[ -n "$SUB" ] || SUB="$CX_SUBSYSTEM_NAME"
+
 # ---------------------------------------------------------------------------
-# Event (PostToolUse JSON on stdin). cwd is always present; a shell tool's
-# tool_input.workdir is used as a second candidate when the model set one.
+# Event (PostToolUse JSON on stdin)
 # ---------------------------------------------------------------------------
 EV="$(mktemp "${TMPDIR:-/tmp}/cx-hook.XXXXXX")" || exit 0
 trap 'rm -f "$EV"' EXIT
 cat > "$EV" 2>/dev/null || exit 0
 
-SID="$(json_get "$EV" session_id session_id)"
-[ -n "$SID" ] || exit 0
-EV_CWD="$(json_get "$EV" cwd cwd)"
-WD="$(json_get "$EV" tool_input.workdir workdir)"
-case "$WD" in
-  "" | /*) ;;
-  *) [ -n "$EV_CWD" ] && WD="$EV_CWD/$WD" ;; # relative workdir is cwd-relative
-esac
-[ -n "$EV_CWD$WD" ] || exit 0
+get_ev() { plutil -extract "$1" raw -o - "$EV" 2>/dev/null; }
 
-# user_email: decode the id_token JWT payload from auth.json (ChatGPT
-# sign-in); silently empty for API-key auth or unreadable files.
-EMAIL=""
-AUTH_JSON="${AUTH_FILE:-$CODEX_HOME/auth.json}"
-IDT="$(json_get "$AUTH_JSON" tokens.id_token id_token)"
-if [ -n "$IDT" ]; then
-  _seg="$(printf '%s' "$IDT" | cut -d. -f2 | tr '_-' '/+')"
-  case $(( ${#_seg} % 4 )) in
-    2) _seg="$_seg==" ;;
-    3) _seg="$_seg=" ;;
-  esac
-  EMAIL="$(printf '%s' "$_seg" | b64_decode |
-    sed -n 's/.*"email"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
-fi
+SID="$(get_ev session_id)"
+[ -n "$SID" ] || exit 0
+EV_CWD="$(get_ev cwd)"
+# Codex shell tools carry only {command}; file tools may carry a path — probe
+# the common keys and fall back to cwd alone when absent.
+FP="$(get_ev tool_input.file_path)"
+[ -n "$FP" ] || FP="$(get_ev tool_input.path)"
+[ -n "$EV_CWD$FP" ] || exit 0
 
 # ---------------------------------------------------------------------------
-# Repo detection (git optional; on macOS avoid the /usr/bin/git CLT stub,
-# which pops a GUI install dialog on Macs without Command Line Tools). Every
-# git call is bounded to 5s so a hung fs/mount degrades instead of stalling.
+# Repo detection (git optional; avoid the /usr/bin/git CLT stub, which pops a
+# GUI install dialog on Macs without Command Line Tools). Every git call is
+# bounded to 5s via a watchdog so a hung fs/mount degrades instead of stalling.
 # ---------------------------------------------------------------------------
 GIT_OK=0
 GIT_PATH="$(command -v git 2>/dev/null)"
 if [ -n "$GIT_PATH" ]; then
-  if [ "$(uname -s)" = "Darwin" ] && [ "$GIT_PATH" = "/usr/bin/git" ]; then
+  if [ "$GIT_PATH" = "/usr/bin/git" ]; then
     xcode-select -p >/dev/null 2>&1 && GIT_OK=1
   else
     GIT_OK=1
@@ -198,7 +166,11 @@ fi
 git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
   _o="$(mktemp "${TMPDIR:-/tmp}/cx-git.XXXXXX")" || return 1
   git "$@" >"$_o" 2>/dev/null & _gp=$!
-  ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) & _gw=$!
+  # The watchdog must NOT inherit our stdout: callers run this function inside
+  # a command substitution, and an inherited pipe write-end would keep the
+  # caller's read blocked for the full 5s even after git returns instantly
+  # (killing the wrapper subshell does not kill its sleep).
+  ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) >/dev/null 2>&1 & _gw=$!
   wait "$_gp" 2>/dev/null; _rc=$?
   kill -TERM "$_gw" 2>/dev/null; wait "$_gw" 2>/dev/null
   cat "$_o"; rm -f "$_o"
@@ -213,12 +185,15 @@ repo_root() { # $1=dir
 repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallback)
   REPO_NAME="$(git_bounded -C "$1" remote get-url origin)"
   [ -n "$REPO_NAME" ] || REPO_NAME="${1##*/}"
-  # Never label a token; an '@' after the authority belongs to the path.
-  rest="${REPO_NAME#*://}"
+  # Never label a token; an '@' after the authority belongs to the path, and
+  # userinfo may itself contain '@' — cut at the authority's LAST one.
   case "$REPO_NAME" in
     *://*@*)
-      case "${rest%%/*}" in
-        *@*) REPO_NAME="${REPO_NAME%%://*}://${rest#*@}" ;;
+      _scheme="${REPO_NAME%%://*}"
+      _rest="${REPO_NAME#*://}"
+      _auth="${_rest%%/*}"
+      case "$_auth" in
+        *@*) REPO_NAME="$_scheme://${_auth##*@}${_rest#"$_auth"}" ;;
       esac ;;
   esac
 }
@@ -236,6 +211,7 @@ json_escape() {
       gsub(/"/, "\\\"", s)
       gsub(/\t/, "\\t", s)
       gsub(/\r/, "\\r", s)
+      gsub(/[[:cntrl:]]/, "", s)
       printf "%s", s
     }'
 }
@@ -245,31 +221,30 @@ json_escape() {
 # ---------------------------------------------------------------------------
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
-EMAIL_E="$(json_escape "$EMAIL")"
 
 DPS=""
 add_dp() { # $1=repo name
   r_e="$(json_escape "$1")"
-  dp="{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$r_e\"}},{\"key\":\"user_email\",\"value\":{\"stringValue\":\"$EMAIL_E\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
+  dp="{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$r_e\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
   DPS="${DPS:+$DPS,}$dp"
 }
 
 # Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
 # share one origin URL; emit one data point per name).
 ROOTS=""; NAMES=""
-for p in "$EV_CWD" "$WD"; do
+for p in "$EV_CWD" "$FP"; do
   [ -n "$p" ] || continue
   d="$p"
   [ -d "$d" ] || d="$(dirname "$p" 2>/dev/null)"
   [ -n "$d" ] && [ -d "$d" ] || continue
   root="$(repo_root "$d")" || continue
   [ -n "$root" ] || continue
-  printf '%s\n' "$ROOTS" | grep -Fqx "$root" && continue
+  printf '%s\n' "$ROOTS" | grep -Fqx -- "$root" && continue
   ROOTS="$ROOTS$root
 "
   repo_name "$root"
   [ -n "$REPO_NAME" ] || continue
-  printf '%s\n' "$NAMES" | grep -Fqx "$REPO_NAME" && continue
+  printf '%s\n' "$NAMES" | grep -Fqx -- "$REPO_NAME" && continue
   NAMES="$NAMES$REPO_NAME
 "
   add_dp "$REPO_NAME"
@@ -277,16 +252,15 @@ done
 [ -n "$DPS" ] || add_dp "unknown"
 
 RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"codex-hook\"}}"
-[ -n "$APP" ] && RATTRS="$RATTRS,{\"key\":\"cx.application.name\",\"value\":{\"stringValue\":\"$(json_escape "$APP")\"}}"
-[ -n "$SUB" ] && RATTRS="$RATTRS,{\"key\":\"cx.subsystem.name\",\"value\":{\"stringValue\":\"$(json_escape "$SUB")\"}}"
 
 PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.0.0\"},\"metrics\":[{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session).
-# The configured endpoint is the metrics exporter's URL, which already ends in
-# /v1/metrics in the documented template; append the path when given a bare
-# ingress host.
+# The config.toml endpoint ends in the signal path Codex exports to (/v1/logs);
+# strip any /v1/<signal> suffix down to the ingress base, then post to
+# /v1/metrics. Application/subsystem ride as CX-* headers — the same routing
+# mechanism the [otel] block itself uses.
 # ---------------------------------------------------------------------------
 case "$EP" in
   http://*|https://*) ;;
@@ -294,13 +268,28 @@ case "$EP" in
 esac
 EP="${EP%/}"
 case "$EP" in
-  */v1/metrics) ;;
-  *) EP="$EP/v1/metrics" ;;
+  */v1/logs)    EP="${EP%/v1/logs}" ;;
+  */v1/traces)  EP="${EP%/v1/traces}" ;;
+  */v1/metrics) EP="${EP%/v1/metrics}" ;;
 esac
 
-curl -s -o /dev/null --max-time 5 -X POST "$EP" \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: $AUTH" \
+# Headers go through a private temp file (-H @file, curl >= 7.55 — macOS ships
+# newer), keeping the API key off the process argv where ps/EDR would see it.
+# Header values are folded to one line first: a CR/LF smuggled into a config
+# value must not become a header of its own.
+HDRS="$(mktemp "${TMPDIR:-/tmp}/cx-hdr.XXXXXX")" || exit 0
+trap 'rm -f "$EV" "$HDRS"' EXIT
+chmod 600 "$HDRS" 2>/dev/null
+one_line() { printf '%s' "$1" | tr -d '\r\n'; }
+{
+  printf 'Content-Type: application/json\n'
+  printf 'Authorization: %s\n' "$(one_line "$AUTH")"
+  [ -n "$APP" ] && printf 'CX-Application-Name: %s\n' "$(one_line "$APP")"
+  [ -n "$SUB" ] && printf 'CX-Subsystem-Name: %s\n' "$(one_line "$SUB")"
+} > "$HDRS" 2>/dev/null
+
+curl -s -o /dev/null --max-time 5 -X POST "$EP/v1/metrics" \
+  -H @"$HDRS" \
   --data-binary "$PAYLOAD" 2>/dev/null
 
 exit 0
