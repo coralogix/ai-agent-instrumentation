@@ -14,8 +14,7 @@
 # Claude Code PostToolUse hook that tracks repository names per session (macOS).
 #
 # Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, user_email} on each tool use. repository_name is
-# the checkout's `origin` URL, credentials stripped.
+# {session_id, repository_name, branch_name, user_email} on each tool use.
 #
 # ZERO runtime assumptions: uses only tools that ship with macOS itself —
 # /bin/sh, plutil (JSON parsing), curl (HTTPS), awk, uname, mktemp. No node, no
@@ -146,23 +145,33 @@ EMAIL="$(get_ev user_email)"
 [ -n "$EV_CWD$FP" ] || exit 0
 
 # ---------------------------------------------------------------------------
-# Repo detection (git optional; avoid the /usr/bin/git CLT stub, which pops a
-# GUI install dialog on Macs without Command Line Tools). Every git call is
+# Repo detection (git optional). Resolve an ABSOLUTE git binary instead of
+# trusting PATH: Claude Code launches hooks with a bare-bones PATH where the
+# only git is /usr/bin/git, and that is a shim for Apple's developer tools which
+# pops a GUI install dialog when they are absent. So we look for the real
+# binaries the shim forwards to (plus the usual package-manager prefixes) and
+# never exec the shim itself — which also means a Homebrew git is used even
+# though /opt/homebrew/bin is missing from the hook's PATH. Every git call is
 # bounded to 5s via a watchdog so a hung fs/mount degrades instead of stalling.
 # ---------------------------------------------------------------------------
-GIT_OK=0
-GIT_PATH="$(command -v git 2>/dev/null)"
-if [ -n "$GIT_PATH" ]; then
-  if [ "$GIT_PATH" = "/usr/bin/git" ]; then
-    xcode-select -p >/dev/null 2>&1 && GIT_OK=1
-  else
-    GIT_OK=1
-  fi
+GIT_BIN=""
+for _cand in \
+  /opt/homebrew/bin/git \
+  /usr/local/bin/git \
+  /Library/Developer/CommandLineTools/usr/bin/git \
+  /Applications/*.app/Contents/Developer/usr/bin/git
+do
+  if [ -x "$_cand" ]; then GIT_BIN="$_cand"; break; fi
+done
+# Anything on PATH except the shim is fine too (custom prefix, or non-macOS).
+if [ -z "$GIT_BIN" ]; then
+  _p="$(command -v git 2>/dev/null)"
+  case "$_p" in ""|/usr/bin/git) ;; *) GIT_BIN="$_p" ;; esac
 fi
 
 git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
   _o="$(mktemp "${TMPDIR:-/tmp}/cx-git.XXXXXX")" || return 1
-  git "$@" >"$_o" 2>/dev/null & _gp=$!
+  "$GIT_BIN" "$@" >"$_o" 2>/dev/null & _gp=$!
   ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) & _gw=$!
   wait "$_gp" 2>/dev/null; _rc=$?
   kill -TERM "$_gw" 2>/dev/null; wait "$_gw" 2>/dev/null
@@ -171,21 +180,29 @@ git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
 }
 
 repo_root() { # $1=dir
-  [ "$GIT_OK" = 1 ] || return 1
+  [ -n "$GIT_BIN" ] || return 1
   git_bounded -C "$1" rev-parse --show-toplevel
 }
 
-repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallback)
-  REPO_NAME="$(git_bounded -C "$1" remote get-url origin)"
-  [ -n "$REPO_NAME" ] || REPO_NAME="${1##*/}"
-  # Never label a token; an '@' after the authority belongs to the path.
-  rest="${REPO_NAME#*://}"
-  case "$REPO_NAME" in
-    *://*@*)
-      case "${rest%%/*}" in
-        *@*) REPO_NAME="${REPO_NAME%%://*}://${rest#*@}" ;;
-      esac ;;
-  esac
+repo_name() { # $1=repo root -> owner/repo (or basename fallback)
+  url="$(git_bounded -C "$1" remote get-url origin)"
+  if [ -n "$url" ]; then
+    u="${url%/}"; u="${u%.git}"
+    u="$(printf '%s' "$u" | tr ':' '/')"
+    o="$(basename "$(dirname "$u")")"
+    n="$(basename "$u")"
+    case "$o" in
+      ""|"."|"/") printf '%s' "$n" ;;
+      *)          printf '%s/%s' "$o" "$n" ;;
+    esac
+  else
+    basename "$1"
+  fi
+}
+
+repo_branch() { # $1=repo root -> branch name ("HEAD" when detached)
+  # symbolic-ref (not rev-parse) so a fresh repo with no commits still resolves.
+  git_bounded -C "$1" symbolic-ref --short -q HEAD || printf 'HEAD'
 }
 
 # JSON-escape a string: backslash and double-quote, plus the control characters
@@ -213,15 +230,17 @@ SID_E="$(json_escape "$SID")"
 EMAIL_E="$(json_escape "$EMAIL")"
 
 DPS=""
-add_dp() { # $1=repo name
+add_dp() { # $1=repo name, $2=branch name
   r_e="$(json_escape "$1")"
-  dp="{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$r_e\"}},{\"key\":\"user_email\",\"value\":{\"stringValue\":\"$EMAIL_E\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
+  b_e="$(json_escape "$2")"
+  dp="{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$r_e\"}},{\"key\":\"branch_name\",\"value\":{\"stringValue\":\"$b_e\"}},{\"key\":\"user_email\",\"value\":{\"stringValue\":\"$EMAIL_E\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
   DPS="${DPS:+$DPS,}$dp"
 }
 
-# Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
-# share one origin URL; emit one data point per name).
-ROOTS=""; NAMES=""
+# Dedupe by repo root AND by resolved name+branch (two roots — e.g. a linked
+# worktree — can resolve to the same owner/repo; emit one data point per
+# name+branch, so worktrees on different branches each report).
+ROOTS=""; KEYS=""
 for p in "$EV_CWD" "$FP"; do
   [ -n "$p" ] || continue
   d="$p"
@@ -232,14 +251,15 @@ for p in "$EV_CWD" "$FP"; do
   printf '%s\n' "$ROOTS" | grep -Fqx "$root" && continue
   ROOTS="$ROOTS$root
 "
-  repo_name "$root"
-  [ -n "$REPO_NAME" ] || continue
-  printf '%s\n' "$NAMES" | grep -Fqx "$REPO_NAME" && continue
-  NAMES="$NAMES$REPO_NAME
+  name="$(repo_name "$root")"
+  [ -n "$name" ] || continue
+  branch="$(repo_branch "$root")"
+  printf '%s\n' "$KEYS" | grep -Fqx "$name $branch" && continue
+  KEYS="$KEYS$name $branch
 "
-  add_dp "$REPO_NAME"
+  add_dp "$name" "$branch"
 done
-[ -n "$DPS" ] || add_dp "unknown"
+[ -n "$DPS" ] || add_dp "unknown" "unknown"
 
 RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"claude-code-hook\"}}"
 [ -n "$APP" ] && RATTRS="$RATTRS,{\"key\":\"cx.application.name\",\"value\":{\"stringValue\":\"$(json_escape "$APP")\"}}"
