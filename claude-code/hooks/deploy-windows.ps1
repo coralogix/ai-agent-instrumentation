@@ -37,8 +37,7 @@ $Content = @'
 # Claude Code PostToolUse hook that tracks repository names per session (Windows).
 #
 # Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, user_email} on each tool use. repository_name is
-# the checkout's `origin` URL, credentials stripped.
+# {session_id, repository_name, branch_name, user_email} on each tool use.
 #
 # ZERO runtime assumptions: requires only Windows PowerShell 5.1, which ships
 # with every Windows 10/11. No node, no python, no binaries to sign. git is
@@ -206,33 +205,42 @@ try {
 
     function Get-RepoName([string]$Root) {
         $url = Invoke-GitBounded $Root @('remote', 'get-url', 'origin')
-        $u = if ($url) { ([string]$url).Trim() } else { Split-Path -Leaf $Root }
-        # Never label a token; an '@' after the authority belongs to the path.
-        $schemeEnd = $u.IndexOf('://')
-        if ($schemeEnd -ge 0) {
-            $rest = $u.Substring($schemeEnd + 3)
-            $pathStart = $rest.IndexOf('/')
-            $authority = if ($pathStart -ge 0) { $rest.Substring(0, $pathStart) } else { $rest }
-            $at = $authority.IndexOf('@')
-            if ($at -ge 0) { $u = $u.Substring(0, $schemeEnd + 3) + $rest.Substring($at + 1) }
+        if ($url) {
+            $u = ([string]$url).Trim().TrimEnd('/')
+            if ($u.EndsWith('.git')) { $u = $u.Substring(0, $u.Length - 4) }
+            # @(...) forces an array so a single segment is not unwrapped to a
+            # scalar string (whose [-1] would index the last character).
+            $parts = @(($u -replace ':', '/') -split '/' | Where-Object { $_ -ne '' })
+            if ($parts.Count -ge 2) { return ($parts[-2] + '/' + $parts[-1]) }
+            if ($parts.Count -eq 1) { return $parts[0] }
         }
-        return $u
+        return (Split-Path -Leaf $Root)
+    }
+
+    function Get-RepoBranch([string]$Root) {
+        # symbolic-ref (not rev-parse) so a fresh repo with no commits still
+        # resolves; detached HEAD reports "HEAD".
+        $b = Invoke-GitBounded $Root @('symbolic-ref', '--short', '-q', 'HEAD')
+        if ($b) { return ([string]$b).Trim() }
+        return 'HEAD'
     }
 
     $nowNs = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() * 1000000000).ToString()
 
-    function New-DataPoint([string]$name) {
+    function New-DataPoint([string]$name, [string]$branch) {
         '{"attributes":[' +
           '{"key":"session_id","value":{"stringValue":' + (ConvertTo-JsonString $sid) + '}},' +
           '{"key":"repository_name","value":{"stringValue":' + (ConvertTo-JsonString $name) + '}},' +
+          '{"key":"branch_name","value":{"stringValue":' + (ConvertTo-JsonString $branch) + '}},' +
           '{"key":"user_email","value":{"stringValue":' + (ConvertTo-JsonString $email) + '}}' +
           '],"timeUnixNano":"' + $nowNs + '","asInt":"1"}'
     }
 
-    # Dedupe by repo root AND by resolved name (a linked worktree resolves to a
-    # different root but the same origin URL; emit one data point per name).
+    # Dedupe by repo root AND by resolved name+branch (a linked worktree resolves
+    # to a different root but the same owner/repo; emit one data point per
+    # name+branch, so worktrees on different branches each report).
     $dps = @()
-    $seenRoots = @(); $seenNames = @()
+    $seenRoots = @(); $seenKeys = @()
     foreach ($p in @($cwd, $fp)) {
         if (-not $p) { continue }
         $d = $p
@@ -244,11 +252,13 @@ try {
         if (-not $root -or $seenRoots -contains $root) { continue }
         $seenRoots += $root
         $name = Get-RepoName $root
-        if (-not $name -or $seenNames -contains $name) { continue }
-        $seenNames += $name
-        $dps += (New-DataPoint $name)
+        if (-not $name) { continue }
+        $branch = Get-RepoBranch $root
+        if ($seenKeys -contains "$name $branch") { continue }
+        $seenKeys += "$name $branch"
+        $dps += (New-DataPoint $name $branch)
     }
-    if ($dps.Count -eq 0) { $dps += (New-DataPoint 'unknown') }
+    if ($dps.Count -eq 0) { $dps += (New-DataPoint 'unknown' 'unknown') }
 
     # --- Build OTLP/JSON payload (hand-built string; guaranteed array shape) ---
     $rattrs = '{"key":"service.name","value":{"stringValue":"claude-code-hook"}}'
