@@ -61,6 +61,8 @@ Claude Code's [server-managed settings](https://docs.anthropic.com/en/docs/claud
 
 **Requirements:** Claude for Teams or Enterprise · Claude Code ≥ 2.1.38
 
+> ⚠️ **Developers behind a proxy, router, or gateway (Headroom, LiteLLM, Bedrock, Vertex, …) silently lose these settings.** Claude Code bypasses server-managed settings entirely whenever a custom `ANTHROPIC_BASE_URL` or third-party provider flag is set — their telemetry stops with no error. See [PROXIES.md](PROXIES.md) for the full list of affected software, the fix (`managed-settings.json` via MDM), and cost-accuracy caveats.
+
 #### 1. Open the admin console
 
 In [Claude.ai](https://claude.ai/), navigate to **Admin Settings → Claude Code → Managed Settings** and click **Manage**.
