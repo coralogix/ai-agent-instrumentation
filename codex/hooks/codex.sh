@@ -203,13 +203,18 @@ repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallbac
 }
 
 # ---------------------------------------------------------------------------
-# Commit / PR counting (per session x repo, cumulative)
+# Commit / line / PR counting (per session x repo, cumulative)
 #
 # Commits are VERIFIED against git, never parsed out of command text: the hook
 # keeps the last HEAD it saw for this (session, repo) in a state file, and when
 # HEAD has advanced LINEARLY since (merge-base --is-ancestor), the new commits
 # authored by this machine's own git identity are added to the running total.
-# A branch switch or rebase moves HEAD non-linearly and only re-baselines; a
+# Lines added/removed are the numstat sums over exactly those commits (binary
+# files and merge commits contribute 0), so they share every rule below.
+# The state file also keeps the SHA of every commit counted, so no commit is
+# counted twice: a linear advance back onto already-seen commits (switching
+# back to a branch, resetting away and back) adds nothing. A non-linear move
+# (a switch to a diverged branch, a rebase, an amend) only re-baselines; a
 # pull counts nothing of other people's work thanks to the author filter. A
 # commit made as the session's very last action has no later tool call to be
 # seen from and is missed - understated, never invented.
@@ -227,31 +232,64 @@ chmod 700 "$STATE_DIR" 2>/dev/null
 # Opportunistic cleanup; sessions do not outlive days of inactivity.
 find "$STATE_DIR" -type f -mtime +2 -delete 2>/dev/null
 
-COMMITS=0; PRS=0
+COMMITS=0; PRS=0; ADDED=0; REMOVED=0
 
-track_counts() { # $1=repo root; uses SID, EV_CMD, EV_RESP; sets COMMITS, PRS
+as_count() { case "$1" in ''|*[!0-9]*) printf '0' ;; *) printf '%s' "$1" ;; esac; }
+
+track_counts() { # $1=repo root; uses SID, EV_CMD, EV_RESP; sets COMMITS, PRS, ADDED, REMOVED
   _key="$(printf '%s|%s' "$SID" "$1" | tr -c 'A-Za-z0-9' '_' | cut -c1-200)"
   _sf="$STATE_DIR/$_key"
   _head="$(git_bounded -C "$1" rev-parse HEAD)" || _head=""
-  _prev=""; COMMITS=0; PRS=0
+  _prev=""; _seen=""; _fresh=""; COMMITS=0; PRS=0; ADDED=0; REMOVED=0
   if [ -f "$_sf" ]; then
     _prev="$(sed -n '1p' "$_sf" 2>/dev/null)"
-    COMMITS="$(sed -n '2p' "$_sf" 2>/dev/null)"; COMMITS="${COMMITS:-0}"
-    PRS="$(sed -n '3p' "$_sf" 2>/dev/null)"; PRS="${PRS:-0}"
+    # A non-number (a hand-edited or corrupt file) would abort the $((...))
+    # below and the hook would exit non-zero, so each counter falls back to 0.
+    COMMITS="$(as_count "$(sed -n '2p' "$_sf" 2>/dev/null)")"
+    PRS="$(as_count "$(sed -n '3p' "$_sf" 2>/dev/null)")"
+    # Lines 4-5 are absent in a state file a 1.1 hook wrote mid-session.
+    ADDED="$(as_count "$(sed -n '4p' "$_sf" 2>/dev/null)")"
+    REMOVED="$(as_count "$(sed -n '5p' "$_sf" 2>/dev/null)")"
+    # Lines 6+ are the SHAs of every commit already counted, one per line.
+    _seen="$(sed -n '6,$p' "$_sf" 2>/dev/null)"
   fi
 
   if [ -n "$_head" ] && [ -n "$_prev" ] && [ "$_head" != "$_prev" ] &&
      git_bounded -C "$1" merge-base --is-ancestor "$_prev" "$_head" >/dev/null; then
     _author="$(git_bounded -C "$1" config user.email)"
+    # One log call yields the commits AND their numstat, so both share one
+    # author filter and one timeout. log.mailmap=false matches --author against
+    # the raw author: through .mailmap it would match an identity other than
+    # user.email.
     if [ -n "$_author" ]; then
-      _new="$(git_bounded -C "$1" rev-list --count --author="$_author" "$_prev..$_head")"
+      _log="$(git_bounded -C "$1" -c log.mailmap=false log --no-color --numstat --format='C %H' --author="$_author" "$_prev..$_head")" || _log=""
     else
-      _new="$(git_bounded -C "$1" rev-list --count "$_prev..$_head")"
+      _log="$(git_bounded -C "$1" -c log.mailmap=false log --no-color --numstat --format='C %H' "$_prev..$_head")" || _log=""
     fi
-    case "$_new" in
-      ''|*[!0-9]*) _new=0 ;;
+    # awk reads the counted SHAs, a "=" separator, then the log. A commit already
+    # counted is skipped with its numstat rows, so returning to an old HEAD (a
+    # branch switch back, a reset and re-reset) never counts a commit twice.
+    # numstat rows are "added<TAB>removed<TAB>path"; a binary file prints "-"
+    # for both and is skipped. Only the sums and new SHAs leave awk, never a
+    # path. A timed-out log is dropped whole rather than counted partially.
+    _res="$( { printf '%s\n' "$_seen" =; printf '%s\n' "$_log"; } | awk -F '\t' '
+      !inlog { if ($0 == "=") inlog = 1; else if ($0 != "") seen[$0] = 1; next }
+      /^C [0-9a-f]+$/ {
+        sha = substr($0, 3); take = !(sha in seen)
+        if (take) { n++; seen[sha] = 1; fresh = fresh "\n" sha }
+        next
+      }
+      take && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ { a += $1; r += $2 }
+      END { printf "%d %.0f %.0f%s\n", n, a, r, fresh }')"
+    _sums="$(printf '%s\n' "$_res" | sed -n '1p')"
+    _new="${_sums%% *}"; _add="${_sums#* }"; _del="${_add#* }"; _add="${_add%% *}"
+    case "$_new$_add$_del" in
+      *[!0-9]*) ;;
+      ?*)
+        _fresh="$(printf '%s\n' "$_res" | sed -n '2,$p')"
+        COMMITS=$((COMMITS + _new))
+        ADDED=$((ADDED + _add)); REMOVED=$((REMOVED + _del)) ;;
     esac
-    COMMITS=$((COMMITS + _new))
   fi
 
   case "$EV_CMD" in
@@ -261,7 +299,11 @@ track_counts() { # $1=repo root; uses SID, EV_CMD, EV_RESP; sets COMMITS, PRS
       esac ;;
   esac
 
-  { printf '%s\n' "${_head:-$_prev}"; printf '%s\n' "$COMMITS"; printf '%s\n' "$PRS"; } > "$_sf" 2>/dev/null
+  { printf '%s\n' "${_head:-$_prev}"; printf '%s\n' "$COMMITS"; printf '%s\n' "$PRS"
+    printf '%s\n' "$ADDED"; printf '%s\n' "$REMOVED"
+    [ -n "$_seen" ] && printf '%s\n' "$_seen"
+    [ -z "$_fresh" ] || printf '%s\n' "$_fresh"; } > "$_sf.tmp" 2>/dev/null &&
+    mv -f "$_sf.tmp" "$_sf" 2>/dev/null
 }
 
 # JSON-escape a string: backslash and double-quote, plus the control characters
@@ -288,16 +330,18 @@ json_escape() {
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
 
-DPS=""; COMMIT_DPS=""; PR_DPS=""
+DPS=""; COMMIT_DPS=""; PR_DPS=""; ADDED_DPS=""; REMOVED_DPS=""
 count_dp() { # $1=repo name  $2=count -> echoes one datapoint
   printf '%s' "{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"$2\"}"
 }
 add_dp() { # $1=repo name
   DPS="${DPS:+$DPS,}$(count_dp "$1" 1)"
 }
-add_count_dps() { # $1=repo name; uses COMMITS/PRS from track_counts
+add_count_dps() { # $1=repo name; uses COMMITS/PRS/ADDED/REMOVED from track_counts
   COMMIT_DPS="${COMMIT_DPS:+$COMMIT_DPS,}$(count_dp "$1" "$COMMITS")"
   PR_DPS="${PR_DPS:+$PR_DPS,}$(count_dp "$1" "$PRS")"
+  ADDED_DPS="${ADDED_DPS:+$ADDED_DPS,}$(count_dp "$1" "$ADDED")"
+  REMOVED_DPS="${REMOVED_DPS:+$REMOVED_DPS,}$(count_dp "$1" "$REMOVED")"
 }
 
 # Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
@@ -319,7 +363,7 @@ for p in "$EV_CWD" "$FP"; do
   NAMES="$NAMES$REPO_NAME
 "
   add_dp "$REPO_NAME"
-  # Commit/PR totals only for the repo the command RAN in - a file-path root
+  # Commit/line/PR totals only for the repo the command RAN in - a file-path root
   # names where an edit landed, not where git state moved.
   [ "$p" = "$EV_CWD" ] && { track_counts "$root"; add_count_dps "$REPO_NAME"; }
 done
@@ -330,8 +374,10 @@ RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"codex-hook\"}}"
 METRICS="{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}"
 [ -n "$COMMIT_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_commits\",\"gauge\":{\"dataPoints\":[$COMMIT_DPS]}}"
 [ -n "$PR_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_prs_opened\",\"gauge\":{\"dataPoints\":[$PR_DPS]}}"
+[ -n "$ADDED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_added\",\"gauge\":{\"dataPoints\":[$ADDED_DPS]}}"
+[ -n "$REMOVED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_removed\",\"gauge\":{\"dataPoints\":[$REMOVED_DPS]}}"
 
-PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.1.0\"},\"metrics\":[$METRICS]}]}]}"
+PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.2.0\"},\"metrics\":[$METRICS]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session).
