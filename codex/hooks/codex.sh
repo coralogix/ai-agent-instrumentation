@@ -151,6 +151,10 @@ FP="$(get_ev tool_input.file_path)"
 # are grepped, never executed or shipped anywhere.
 EV_CMD="$(get_ev tool_input.command)"
 EV_RESP="$(get_ev tool_response)"
+# Present only inside a thread-spawned sub-agent: its own thread id, which is
+# the conversation.id on its Codex log events, while session_id stays the
+# root's — without it the sub-agent's tokens have no repo to join to.
+AGENT_ID="$(get_ev agent_id)"
 
 # ---------------------------------------------------------------------------
 # Repo detection (git optional; avoid the /usr/bin/git CLT stub, which pops a
@@ -202,11 +206,17 @@ repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallbac
   esac
 }
 
-repo_branch() { # $1=repo root -> branch name ("HEAD" when detached)
-  # symbolic-ref (not rev-parse) so a fresh repo with no commits still resolves.
-  # A failed or timed-out call is discarded whole, never a partial name.
-  _b="$(git_bounded -C "$1" symbolic-ref --short -q HEAD)" || _b=""
-  printf '%s' "${_b:-HEAD}"
+repo_branch() { # $1=repo root -> branch name ("HEAD" when detached, "unknown" when unresolvable)
+  # symbolic-ref (not rev-parse) so a fresh repo with no commits still resolves;
+  # not --short, which keeps "heads/" when a tag shares the branch's name. With
+  # -q it exits 1 only for a detached HEAD, so a git error or the 5s timeout
+  # never passes for one, and a partial name is never emitted.
+  _b="$(git_bounded -C "$1" symbolic-ref -q HEAD)"
+  case $? in
+    0) [ -n "$_b" ] && printf '%s' "${_b#refs/heads/}" || printf 'unknown' ;;
+    1) printf 'HEAD' ;;
+    *) printf 'unknown' ;;
+  esac
 }
 
 # ---------------------------------------------------------------------------
@@ -337,12 +347,15 @@ json_escape() {
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
 
+AGENT_ATTR=""
+[ -n "$AGENT_ID" ] && AGENT_ATTR=",{\"key\":\"agent_id\",\"value\":{\"stringValue\":\"$(json_escape "$AGENT_ID")\"}}"
+
 DPS=""; BRANCH_DPS=""; COMMIT_DPS=""; PR_DPS=""; ADDED_DPS=""; REMOVED_DPS=""
-count_dp() { # $1=repo name  $2=count -> echoes one datapoint
-  printf '%s' "{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"$2\"}"
+count_dp() { # $1=repo name  $2=count  [$3=extra attributes JSON] -> echoes one datapoint
+  printf '%s' "{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}}$3],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"$2\"}"
 }
-add_dp() { # $1=repo name
-  DPS="${DPS:+$DPS,}$(count_dp "$1" 1)"
+add_dp() { # $1=repo name; only repo_info names the sub-agent — the counters stay per session
+  DPS="${DPS:+$DPS,}$(count_dp "$1" 1 "$AGENT_ATTR")"
 }
 add_branch_dp() { # $1=repo name  $2=branch name
   BRANCH_DPS="${BRANCH_DPS:+$BRANCH_DPS,}{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}},{\"key\":\"branch_name\",\"value\":{\"stringValue\":\"$(json_escape "$2")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
@@ -396,7 +409,7 @@ METRICS="$METRICS,{\"name\":\"codex_session_branch_info\",\"gauge\":{\"dataPoint
 [ -n "$ADDED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_added\",\"gauge\":{\"dataPoints\":[$ADDED_DPS]}}"
 [ -n "$REMOVED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_removed\",\"gauge\":{\"dataPoints\":[$REMOVED_DPS]}}"
 
-PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.3.0\"},\"metrics\":[$METRICS]}]}]}"
+PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.4.0\"},\"metrics\":[$METRICS]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session).
