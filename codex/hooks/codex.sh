@@ -202,6 +202,13 @@ repo_name() { # $1=repo root; sets REPO_NAME to the origin URL (dir-name fallbac
   esac
 }
 
+repo_branch() { # $1=repo root -> branch name ("HEAD" when detached)
+  # symbolic-ref (not rev-parse) so a fresh repo with no commits still resolves.
+  # A failed or timed-out call is discarded whole, never a partial name.
+  _b="$(git_bounded -C "$1" symbolic-ref --short -q HEAD)" || _b=""
+  printf '%s' "${_b:-HEAD}"
+}
+
 # ---------------------------------------------------------------------------
 # Commit / line / PR counting (per session x repo, cumulative)
 #
@@ -330,12 +337,15 @@ json_escape() {
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
 
-DPS=""; COMMIT_DPS=""; PR_DPS=""; ADDED_DPS=""; REMOVED_DPS=""
+DPS=""; BRANCH_DPS=""; COMMIT_DPS=""; PR_DPS=""; ADDED_DPS=""; REMOVED_DPS=""
 count_dp() { # $1=repo name  $2=count -> echoes one datapoint
   printf '%s' "{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"$2\"}"
 }
 add_dp() { # $1=repo name
   DPS="${DPS:+$DPS,}$(count_dp "$1" 1)"
+}
+add_branch_dp() { # $1=repo name  $2=branch name
+  BRANCH_DPS="${BRANCH_DPS:+$BRANCH_DPS,}{\"attributes\":[{\"key\":\"session_id\",\"value\":{\"stringValue\":\"$SID_E\"}},{\"key\":\"repository_name\",\"value\":{\"stringValue\":\"$(json_escape "$1")\"}},{\"key\":\"branch_name\",\"value\":{\"stringValue\":\"$(json_escape "$2")\"}}],\"timeUnixNano\":\"$NOW_NS\",\"asInt\":\"1\"}"
 }
 add_count_dps() { # $1=repo name; uses COMMITS/PRS/ADDED/REMOVED from track_counts
   COMMIT_DPS="${COMMIT_DPS:+$COMMIT_DPS,}$(count_dp "$1" "$COMMITS")"
@@ -345,8 +355,10 @@ add_count_dps() { # $1=repo name; uses COMMITS/PRS/ADDED/REMOVED from track_coun
 }
 
 # Dedupe by repo root AND by resolved name (two roots — e.g. a linked worktree —
-# share one origin URL; emit one data point per name).
-ROOTS=""; NAMES=""
+# share one origin URL; emit one data point per name). Branches dedupe by
+# name+branch instead, so worktrees of one repo on different branches each
+# report theirs.
+ROOTS=""; NAMES=""; KEYS=""
 for p in "$EV_CWD" "$FP"; do
   [ -n "$p" ] || continue
   d="$p"
@@ -359,6 +371,12 @@ for p in "$EV_CWD" "$FP"; do
 "
   repo_name "$root"
   [ -n "$REPO_NAME" ] || continue
+  branch="$(repo_branch "$root")"
+  if ! printf '%s\n' "$KEYS" | grep -Fqx -- "$REPO_NAME $branch"; then
+    KEYS="$KEYS$REPO_NAME $branch
+"
+    add_branch_dp "$REPO_NAME" "$branch"
+  fi
   printf '%s\n' "$NAMES" | grep -Fqx -- "$REPO_NAME" && continue
   NAMES="$NAMES$REPO_NAME
 "
@@ -367,17 +385,18 @@ for p in "$EV_CWD" "$FP"; do
   # names where an edit landed, not where git state moved.
   [ "$p" = "$EV_CWD" ] && { track_counts "$root"; add_count_dps "$REPO_NAME"; }
 done
-[ -n "$DPS" ] || add_dp "unknown"
+[ -n "$DPS" ] || { add_dp "unknown"; add_branch_dp "unknown" "unknown"; }
 
 RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"codex-hook\"}}"
 
 METRICS="{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}"
+METRICS="$METRICS,{\"name\":\"codex_session_branch_info\",\"gauge\":{\"dataPoints\":[$BRANCH_DPS]}}"
 [ -n "$COMMIT_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_commits\",\"gauge\":{\"dataPoints\":[$COMMIT_DPS]}}"
 [ -n "$PR_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_prs_opened\",\"gauge\":{\"dataPoints\":[$PR_DPS]}}"
 [ -n "$ADDED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_added\",\"gauge\":{\"dataPoints\":[$ADDED_DPS]}}"
 [ -n "$REMOVED_DPS" ] && METRICS="$METRICS,{\"name\":\"codex_session_lines_removed\",\"gauge\":{\"dataPoints\":[$REMOVED_DPS]}}"
 
-PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.2.0\"},\"metrics\":[$METRICS]}]}]}"
+PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.3.0\"},\"metrics\":[$METRICS]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session).

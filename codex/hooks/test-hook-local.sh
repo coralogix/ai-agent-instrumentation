@@ -51,6 +51,7 @@ echo "--- hook exit code: $RC ---"
 echo
 echo "Now look up the metric in Coralogix (metrics have ~30-60s ingest lag):"
 echo "  codex_session_repo_info{session_id=\"$MARKER\"}"
+echo "  codex_session_branch_info{session_id=\"$MARKER\"}"
 echo
 echo "Note: the hook swallows all errors and exits 0 by design, so exit 0 does"
 echo "NOT prove delivery — confirm via the query above."
