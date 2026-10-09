@@ -1,3 +1,33 @@
+#!/bin/zsh
+# ==============================================================================
+# Jamf Deployment Script: Deploy the Codex repo-tracker hook
+# Target Path: /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh
+#
+# Runs as root via Jamf policy. Writes the PostToolUse hook into the managed
+# hook directory that requirements.example.toml registers (hooks.managed_dir),
+# so Codex runs it from the managed layer — no per-user hooks.json, no per-user
+# review. The script below is kept byte-for-byte in sync with codex/hooks/codex.sh.
+#
+# No preflight checks needed: the hook uses only tools that ship with macOS
+# itself (/bin/sh, plutil, awk, curl) — zero runtime dependencies to verify.
+# ==============================================================================
+
+set -e
+
+# 1. Define target directory and file path. Codex validates hooks.managed_dir
+#    is an existing absolute directory before it loads managed hooks, so this
+#    policy has to run before (or with) the com.openai.codex profile.
+TARGET_DIR="/usr/local/coralogix/codex-hooks"
+TARGET_FILE="${TARGET_DIR}/codex-repo-tracker.sh"
+
+# 2. Ensure target directory exists
+if [ ! -d "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+fi
+
+# 3. Write the hook using a single-quoted EOF here-doc.
+# The quoted 'EOF' prevents zsh from interpreting $ variables in the script.
+cat << 'EOF' > "$TARGET_FILE"
 #!/bin/sh
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -493,4 +523,12 @@ curl -s -o /dev/null --max-time 5 -X POST "$EP/v1/metrics" \
   -H @"$HDRS" \
   --data-binary "$PAYLOAD" 2>/dev/null
 
+exit 0
+EOF
+
+# 4. Set ownership and permissions (root-owned, world-executable)
+chown -R root:wheel "$TARGET_DIR"
+chmod 755 "$TARGET_DIR" "$TARGET_FILE"
+
+echo "Deployed Codex repo-tracker hook to ${TARGET_FILE}"
 exit 0

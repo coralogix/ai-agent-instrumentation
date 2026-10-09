@@ -187,9 +187,36 @@ codex_session_repo_info{session_id, repository_name, agent_id}
 
 **Zero runtime assumptions**, same design as the [Claude Code repo-tracker](../claude-code/README.md#repo-tracker-hook-macos--windows): only tools that ship with macOS (`/bin/sh`, `plutil`, `awk`, `curl`), `git` optional, every git call bounded to 5s, all errors swallowed — the hook can never disturb or stall a session.
 
-**No extra secrets:** the hook reads the same `~/.codex/config.toml` `[otel.exporter.otlp-http]` block installed in Setup above — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers. `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` flags exist for manual testing.
+**No extra secrets:** the hook reads the same `[otel.exporter.otlp-http]` block Codex exports with — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers — from the MDM-managed `com.openai.codex` preferences first (`config_toml_base64`, the Jamf rollout below), then `~/.codex/config.toml` (the per-user Setup above). `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` / `--managed-prefs` flags exist for manual testing.
 
-### Install
+### Org-wide via Jamf (recommended)
+
+The same model as the Claude Code rollout: IT pushes the script and the configuration, and developers do nothing. Codex loads both from its managed layer — the `com.openai.codex` managed preferences OpenAI documents for MDM ([Managed configuration](https://developers.openai.com/codex/enterprise/managed-configuration)) — so nothing is written to `~/.codex/hooks.json` and the per-user review below does not apply:
+
+| Preference key | Carries | Built from |
+|---|---|---|
+| `requirements_toml_base64` | the hook registration — `[hooks]` with `managed_dir`, plus `[features].hooks = true` so it runs even where a user turned hooks off | [`hooks/requirements.example.toml`](hooks/requirements.example.toml) |
+| `config_toml_base64` | the `[otel]` block — Codex's own log export, and the endpoint/key the hook reads | [`config.toml.example`](config.toml.example) with your values |
+
+1. **Policy:** run [`hooks/deploy-jamf.sh`](hooks/deploy-jamf.sh) as a Jamf Policy script. It installs the hook at `/usr/local/coralogix/codex-hooks/codex-repo-tracker.sh`. Scope it before, or together with, the profile — Codex requires `managed_dir` to exist before it loads managed hooks.
+2. **Configuration profile:** build the plist and upload it under *Application & Custom Settings → Upload*, preference domain `com.openai.codex`:
+
+   ```bash
+   set -a; source .env; set +a
+   envsubst < config.toml.example > /tmp/codex-managed.toml
+   ./hooks/make-jamf-plist.sh hooks/requirements.example.toml /tmp/codex-managed.toml > com.openai.codex.plist
+   ```
+
+   The plist holds your send key — keep it out of git. On each Mac it sits under `/Library/Managed Preferences/`, the same exposure as Claude Code's `managed-settings.json`.
+3. **Developers restart Codex.**
+
+**Pilot on one Mac first:** `codex` must start with no `hooks need review` prompt, and `codex_session_repo_info` must arrive in Coralogix.
+
+**Prompt text in traces:** `config.toml.example` also enables `trace_exporter`, and trace-embedded events carry prompt text regardless of `log_user_prompt` (see Advanced configuration). Drop the `[otel.trace_exporter…]` tables from the managed copy unless that is approved for the fleet.
+
+**Machines that also registered the hook per user:** remove that entry from `~/.codex/hooks.json` once the managed hook is live. Both copies share one state file per session, so running both can race on the commit counts.
+
+### Per-user install (no MDM)
 
 ```bash
 sudo cp hooks/codex.sh /usr/local/bin/codex-repo-tracker.sh
@@ -219,9 +246,9 @@ Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json
 
 Schema gotchas (all four break silently or with a cryptic error): event names are **PascalCase** (`PostToolUse`), `matcher` must be a valid **regex** (`".*"`, not `"*"`), the timeout key is **`timeout`** (seconds), and the file is `~/.codex/hooks.json` — not a key inside `config.toml`.
 
-### Approve the hook (Codex's trust model)
+### Approve the hook (per-user install only)
 
-Unlike Claude Code — where an MDM-managed settings file activates hooks fleet-wide — Codex requires **each user to approve hooks interactively**. On the next `codex` run after editing `hooks.json` you'll see `PostToolUse hooks · N hooks need review`; review and approve.
+A hook registered in `~/.codex/hooks.json` needs **each user to approve it interactively** — the Jamf rollout above avoids this. On the next `codex` run after editing `hooks.json` you'll see `PostToolUse hooks · N hooks need review`; review and approve.
 
 Approval state lives in `~/.codex/config.toml` under `[hooks.state]`, keyed by hook source, with **two separate flags**:
 
@@ -241,6 +268,12 @@ Verified on Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alpha.4.1 — 
 
 ```bash
 ./hooks/test-hook-local.sh
+```
+
+To test the Jamf config path without an MDM, point the hook at the plist you built:
+
+```bash
+HOOK_CMD='/bin/sh hooks/codex.sh --managed-prefs=com.openai.codex.plist' ./hooks/test-hook-local.sh
 ```
 
 The hook swallows all errors and exits 0 by design, so exit 0 does **not** prove delivery — confirm with the printed `codex_session_repo_info{session_id="localtest-…"}` query.

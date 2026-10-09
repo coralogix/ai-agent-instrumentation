@@ -1,0 +1,22 @@
+# Codex requirements for the repo-tracker hook, delivered fleet-wide as the
+# requirements_toml_base64 key of the com.openai.codex managed preferences
+# (build the plist with make-jamf-plist.sh). Codex enforces hooks defined here
+# from the managed layer; deploy-jamf.sh installs the script into managed_dir.
+#
+# allow_managed_hooks_only is deliberately not set: it would switch off every
+# hook users configured themselves.
+
+[features]
+# Keeps hooks running for users who turned the feature off locally.
+hooks = true
+
+[hooks]
+managed_dir = "/usr/local/coralogix/codex-hooks"
+
+[[hooks.PostToolUse]]
+matcher = ".*"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "[ -x /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh; exit 0"
+timeout = 30
