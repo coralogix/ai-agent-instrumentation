@@ -196,3 +196,52 @@ source logs | filter $d.logRecord.attributes['event.name'] == 'gemini_cli.api_er
 ---
 
 For the full list of Gemini CLI telemetry configuration variables, see the [Gemini CLI configuration reference](https://geminicli.com/docs/reference/configuration).
+
+---
+
+## Repo-tracker hook (optional)
+
+Gemini CLI's native telemetry doesn't record *which git repositories* a session works on. `hooks/gemini.py` is a [Gemini CLI hook](https://geminicli.com/docs/hooks/) (the `AfterTool` event, available in v0.26.0+) that fills that gap, emitting the OTLP gauge metric:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `gemini_cli_session_repo_info` | gauge (`=1`) | `session_id`, `repository_name`, `user_email` |
+
+It's the Gemini counterpart of the Claude Code / Codex / Copilot repo-tracker hooks. Gemini pipes the event JSON to the hook's stdin (which carries `session_id`, `cwd`, `tool_name`, `tool_input`); the hook resolves the repo from `cwd` (plus any file path in the tool input) via `git rev-parse` + `git remote get-url origin`, and prints `{}` to stdout as Gemini requires. Python 3 stdlib only — no dependencies, fails silently. `session_id` matches the id on Gemini's native telemetry, so the two join downstream.
+
+### Enable it
+
+1. **Credentials.** The hook reuses the `CX_*` values from your `.env` (`CX_API_KEY`, `CX_OTLP_ENDPOINT`, optional `CX_APPLICATION_NAME` / `CX_SUBSYSTEM_NAME`, sent as routing headers). It exits silently if the key or endpoint is unset.
+
+2. **Register the hook** in `~/.gemini/settings.json` (replace the path with the absolute path to `hooks/gemini.py`):
+
+   ```json
+   {
+     "hooks": {
+       "AfterTool": [
+         {
+           "matcher": ".*",
+           "hooks": [
+             { "type": "command", "command": "python3 /absolute/path/to/gemini-cli/hooks/gemini.py" }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+3. **Verify** after a session that touches a git repo (one-shot gauge points need a *range* query):
+
+   ```promql
+   count by (repository_name) (gemini_cli_session_repo_info)
+   ```
+
+For fleet deployment via Jamf, see [`deploy/`](../deploy/), which installs this hook (and the other agents') for the logged-in user.
+
+| Env var | Required | Purpose |
+|---|---|---|
+| `CX_API_KEY` | yes | Coralogix Send-Your-Data API key |
+| `CX_OTLP_ENDPOINT` | yes | Coralogix OTLP ingress base URL; the hook POSTs to `…/v1/metrics` |
+| `CX_APPLICATION_NAME` | no | `CX-Application-Name` header + `cx.application.name` resource attribute |
+| `CX_SUBSYSTEM_NAME` | no | `CX-Subsystem-Name` header + `cx.subsystem.name` resource attribute |
+| `CX_HOOK_USER_EMAIL` | no | Overrides the `user_email` label; defaults to `git config user.email` |

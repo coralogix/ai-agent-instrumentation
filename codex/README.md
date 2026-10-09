@@ -45,6 +45,16 @@ Codex emits a trace per session when `trace_exporter` is configured. Spans cover
 | `session_loop` (root) | `busy_ns`, `idle_ns`, `duration` — total session time split between agent processing and idle (developer) time |
 | `stream_request` (child) | `busy_ns`, `idle_ns`, `duration` — per-API-call breakdown; contains embedded `codex.api_request` log with `user.email` and response headers including quota data (`x-codex-plan-type`, `x-codex-primary-used-percent`) |
 
+### Metrics — repo-tracker hook
+
+Codex's native telemetry doesn't say _which repositories_ a session touched. The optional repo-tracker hook fills that gap by emitting an OTLP metric on each tool call:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `codex_cli_session_repo_info` | gauge (`=1`) | `session_id`, `repository_name`, `user_email` |
+
+`repository_name` is resolved from the git `origin` remote (`org/repo`), falling back to the directory name, or `unknown` outside a git repo. `session_id` matches the `conversation.id` on the native log/trace signals, so you can join repos onto session activity downstream. See [the repo-tracker hook](#repo-tracker-hook-optional) below to enable it.
+
 ---
 
 ## Setup
@@ -137,6 +147,48 @@ Run a session, then type `/exit` to flush telemetry. Logs appear in Coralogix un
 | `trace_exporter` | `"none"` | Same options as `exporter`, enables trace export via OTLP |
 
 See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advanced/#observability-and-telemetry) for the full reference.
+
+---
+
+## Repo-tracker hook (optional)
+
+`hooks/codex.py` is a [Codex lifecycle hook](https://developers.openai.com/codex/hooks) that records which git repositories a session works on and ships them to Coralogix as the `codex_cli_session_repo_info` metric (see [Metrics — repo-tracker hook](#metrics--repo-tracker-hook) above).
+
+It's the Codex counterpart of the Claude Code repo-tracker hook. Codex pipes the event JSON to the hook's stdin and runs it with the session `cwd` as its working directory; the hook resolves the repo from that `cwd` (plus any file path in the tool input) via `git rev-parse` + `git remote get-url origin`. Python 3 stdlib only — no dependencies, fails silently, never blocks Codex.
+
+### Enable it
+
+1. **Credentials.** The hook reuses the same `CX_*` values you already source from `.env` (steps 1–2 above) — `CX_API_KEY`, `CX_OTLP_ENDPOINT`, and the optional `CX_APPLICATION_NAME` / `CX_SUBSYSTEM_NAME` (sent as routing headers so the metric lands on the same app/subsystem as your native telemetry). If both the key and endpoint are unset, the hook exits silently.
+
+2. **Register the hook.** The `[[hooks.PostToolUse]]` block in `config.toml.example` is merged into `~/.codex/config.toml` along with the `[otel]` block (Setup step 3). Replace the placeholder path with the absolute path to `hooks/codex.py`:
+
+   ```toml
+   [[hooks.PostToolUse]]
+   matcher = ".*"
+
+   [[hooks.PostToolUse.hooks]]
+   type = "command"
+   command = "python3 /absolute/path/to/codex/hooks/codex.py"
+   timeout = 10
+   ```
+
+   > Run `pwd` inside the `codex/` directory to get the absolute path. Root keys like `notify` must appear **before** any table in `config.toml`; the `[[hooks.*]]` array tables can go anywhere among the other tables.
+
+3. **Verify.** Run a Codex session that touches a git repo, then query in Coralogix:
+
+   ```promql
+   count by (repository_name) (codex_cli_session_repo_info)
+   ```
+
+### Configuration
+
+| Env var | Required | Purpose |
+|---|---|---|
+| `CX_API_KEY` | yes | Coralogix Send-Your-Data API key (bearer token) |
+| `CX_OTLP_ENDPOINT` | yes | Coralogix OTLP ingress base URL; the hook POSTs to `…/v1/metrics` |
+| `CX_APPLICATION_NAME` | no | Stamped as the `CX-Application-Name` header + `cx.application.name` resource attribute |
+| `CX_SUBSYSTEM_NAME` | no | Stamped as the `CX-Subsystem-Name` header + `cx.subsystem.name` resource attribute |
+| `CX_HOOK_USER_EMAIL` | no | Overrides the `user_email` label; defaults to `git config user.email` |
 
 ---
 

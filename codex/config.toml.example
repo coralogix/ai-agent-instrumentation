@@ -44,3 +44,24 @@ protocol = "binary"
 # Optional: disable Codex's separate anonymous analytics to OpenAI
 [analytics]
 enabled = false
+
+# ---------------------------------------------------------------------------
+# Repo-tracker hook (optional)
+#
+# Fires after every tool call, resolves the git repo from the session cwd (and
+# any file path in the tool input), and emits the OTLP gauge metric
+# codex_cli_session_repo_info{session_id, repository_name, user_email}.
+# session_id matches the conversation.id on Codex's native telemetry, so the
+# two join downstream on that key.
+#
+# Reuses the CX_* credentials sourced from .env. Replace the path below with the
+# absolute path to hooks/codex.py (run `pwd` inside the codex/ directory).
+# ---------------------------------------------------------------------------
+
+[[hooks.PostToolUse]]
+matcher = ".*"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "python3 /absolute/path/to/codex/hooks/codex.py"
+timeout = 10
