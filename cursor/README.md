@@ -70,7 +70,7 @@ Pick the section below for your platform. Each is self-contained — you don't n
 
 ### macOS / Linux (`install.sh`)
 
-Requires Python 3.8+ available as `python3`.
+Requires Python 3.8+. macOS ships none of its own — `brew install python` or the [python.org installer](https://www.python.org/downloads/macos/). The installer probes your PATH, `/opt/homebrew`, `/usr/local`, `Python.framework` and `/usr/bin` for an interpreter that actually **runs**, then pins that absolute path into the hook wrapper; Cursor launches hooks with a bare-bones PATH, so a `python3` lookup at runtime is not reliable. If nothing works it aborts and lists every path it tried — it never leaves a half-installed hook behind.
 
 **Local setup with a `.env` file:**
 
@@ -112,7 +112,7 @@ Files land in `~/.cursor/hooks/` and the hook is registered in `~/.cursor/hooks.
 
 ### Windows (`install.ps1`)
 
-Requires Python 3.8+ reachable as `python`, `py -3`, or `python3`. Windows PowerShell 5.1 (preinstalled on Windows 10/11) is enough — no `pwsh` needed.
+Requires Python 3.8+ reachable as `python`, `py -3`, or `python3` — each is probed by running it, so the Microsoft Store `python.exe` alias (which opens the Store instead of executing) is skipped, and the winner's absolute path is pinned into the wrapper. Windows PowerShell 5.1 (preinstalled on Windows 10/11) is enough — no `pwsh` needed.
 
 **Local setup with a `.env` file:**
 
@@ -185,7 +185,7 @@ The hook installs into the **signed-in user's profile** (`~/.cursor` on macOS/Li
 - **Run the installer in the user's context.** MDM agents execute as root/SYSTEM by default; in that context the installer writes to the root/SYSTEM profile instead of the developer's, so the policy reports success but Cursor never loads the hook. On Jamf, execute the installer as the logged-in user (e.g. `launchctl asuser <uid> sudo -u <user> -H`); on Intune, package the installer as a Win32 app with install behavior set to *User* and assign it to a user group. A suitable detection rule is the presence of `~/.cursor/hooks/coralogix_hook.sh` (macOS/Linux) or `%USERPROFILE%\.cursor\hooks\coralogix_hook.cmd` (Windows).
 - **Machine-wide alternative:** Cursor also reads a system-level `hooks.json` (`/Library/Application Support/Cursor/hooks.json`, `C:\ProgramData\Cursor\hooks.json`, `/etc/cursor/hooks.json`), which fits the root/SYSTEM execution model — one installation covers every user of the machine. If you take this route, place `hook.py`, the wrapper, and the env file at a machine path readable by all users, and install the two Python packages machine-wide (for example in a dedicated virtual environment), since a `pip install --user` performed as root/SYSTEM is not visible to other users. We recommend validating system-level hook loading on a single machine before a fleet rollout.
 - **Credentials:** inject `CX_API_KEY` and the other required values from your MDM's secrets or variable mechanism rather than hardcoding them in a saved policy.
-- **Python 3.8+** must be present on the endpoints (`python3` on macOS/Linux; `python`, `py -3`, or `python3` on Windows); distribute it via MDM if your fleet lacks it. If Python is missing, the hook does nothing and Cursor is unaffected.
+- **Python 3.8+** must be present on the endpoints (`python3` on macOS/Linux; `python`, `py -3`, or `python3` on Windows); distribute it via MDM if your fleet lacks it. Note that a stock macOS image has **no** Python — `/usr/bin/python3` is only a placeholder for Apple's developer command line tools — so the installer stops with the list of paths it probed. If Python is missing at hook runtime, the hook does nothing and Cursor is unaffected.
 - The installers are **idempotent** — safe to re-run on every check-in cycle — and offboarding uses the same script with `--uninstall` / `-Uninstall`.
 - **Use a single delivery mechanism per machine.** Combining a per-user install with another delivery of the same hook (machine-wide, or Cursor Enterprise team hooks) results in duplicate spans.
 
@@ -269,7 +269,7 @@ Set `CX_OTLP_DEBUG=true` to print the raw event payload, exported trace/span IDs
 
 ## Requirements
 
-- Python 3.8+
-- `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http` pip packages (installed automatically)
+- Python 3.8+ that actually executes (see the platform sections above — a stock macOS `/usr/bin/python3` does not)
+- `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http` pip packages (installed automatically, into the `--user` site of that same interpreter)
 - Cursor with agent hooks support (**Cursor Settings → Features → Agent**)
 - A Coralogix tenant with a Send-Your-Data API key
