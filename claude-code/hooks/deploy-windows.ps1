@@ -34,10 +34,13 @@ $Content = @'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Claude Code PostToolUse hook that tracks repository names per session (Windows).
+# Claude Code hook that reports session telemetry to Coralogix (Windows).
 #
-# Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, branch_name, user_email} on each tool use.
+# Sends one OTLP/JSON span per hook event (SessionStart, UserPromptSubmit,
+# PostToolUse, PostToolUseFailure, CwdChanged, DirectoryAdded, SessionEnd) to
+# /v1/traces. On PostToolUse it also emits the OTLP/JSON gauge metric
+# claude_code_session_repo_info with labels {session_id, repository_name,
+# branch_name, user_email} to /v1/metrics.
 #
 # ZERO runtime assumptions: requires only Windows PowerShell 5.1, which ships
 # with every Windows 10/11. No node, no python, no binaries to sign. git is
@@ -174,11 +177,15 @@ try {
 
     if (-not $endpoint -or -not $auth) { exit 0 }
 
-    # --- Event (PostToolUse JSON on stdin) ------------------------------------
+    # --- Event (hook JSON on stdin) -------------------------------------------
     $raw = [Console]::In.ReadToEnd()
     if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
     $ev = $raw | ConvertFrom-Json
     if (-not $ev -or -not $ev.session_id) { exit 0 }
+    # Empty event name = older Claude Code builds that only fired PostToolUse.
+    $evName = [string]$ev.hook_event_name
+    if (-not $evName) { $evName = 'PostToolUse' }
+    if (@('SessionStart','UserPromptSubmit','PostToolUse','PostToolUseFailure','CwdChanged','DirectoryAdded','SessionEnd') -notcontains $evName) { exit 0 }
     $sid = [string]$ev.session_id
     $cwd = [string]$ev.cwd
     $tool = [string]$ev.tool_name
@@ -190,7 +197,7 @@ try {
     }
     $email = ''
     if ($ev.user_email) { $email = [string]$ev.user_email }
-    if (-not $cwd -and -not $fp) { exit 0 }
+    $sendMetric = ($evName -eq 'PostToolUse' -and ($cwd -or $fp))
 
     # --- Repo detection (git optional) ----------------------------------------
     $gitOk = $false
@@ -203,8 +210,15 @@ try {
         return $null
     }
 
-    function Get-RepoName([string]$Root) {
+    # An https remote can hold a token (https://user:token@host/...): never send it.
+    function Get-OriginUrl([string]$Root) {
         $url = Invoke-GitBounded $Root @('remote', 'get-url', 'origin')
+        if ($url) { return (([string]$url).Trim() -replace '^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@', '$1') }
+        return $null
+    }
+
+    function Get-RepoName([string]$Root) {
+        $url = Get-OriginUrl $Root
         if ($url) {
             $u = ([string]$url).Trim().TrimEnd('/')
             if ($u.EndsWith('.git')) { $u = $u.Substring(0, $u.Length - 4) }
@@ -225,60 +239,163 @@ try {
         return 'HEAD'
     }
 
-    $nowNs = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() * 1000000000).ToString()
-
-    function New-DataPoint([string]$name, [string]$branch) {
-        '{"attributes":[' +
-          '{"key":"session_id","value":{"stringValue":' + (ConvertTo-JsonString $sid) + '}},' +
-          '{"key":"repository_name","value":{"stringValue":' + (ConvertTo-JsonString $name) + '}},' +
-          '{"key":"branch_name","value":{"stringValue":' + (ConvertTo-JsonString $branch) + '}},' +
-          '{"key":"user_email","value":{"stringValue":' + (ConvertTo-JsonString $email) + '}}' +
-          '],"timeUnixNano":"' + $nowNs + '","asInt":"1"}'
-    }
-
-    # Dedupe by repo root AND by resolved name+branch (a linked worktree resolves
-    # to a different root but the same owner/repo; emit one data point per
-    # name+branch, so worktrees on different branches each report).
-    $dps = @()
-    $seenRoots = @(); $seenKeys = @()
-    foreach ($p in @($cwd, $fp)) {
-        if (-not $p) { continue }
-        $d = $p
-        if (-not (Test-Path -LiteralPath $d -PathType Container)) {
-            $d = Split-Path -Parent $p
-        }
-        if (-not $d -or -not (Test-Path -LiteralPath $d -PathType Container)) { continue }
-        $root = Get-RepoRoot $d
-        if (-not $root -or $seenRoots -contains $root) { continue }
-        $seenRoots += $root
-        $name = Get-RepoName $root
-        if (-not $name) { continue }
-        $branch = Get-RepoBranch $root
-        if ($seenKeys -contains "$name $branch") { continue }
-        $seenKeys += "$name $branch"
-        $dps += (New-DataPoint $name $branch)
-    }
-    if ($dps.Count -eq 0) { $dps += (New-DataPoint 'unknown' 'unknown') }
-
-    # --- Build OTLP/JSON payload (hand-built string; guaranteed array shape) ---
     $rattrs = '{"key":"service.name","value":{"stringValue":"claude-code-hook"}}'
     if ($app) { $rattrs += ',{"key":"cx.application.name","value":{"stringValue":' + (ConvertTo-JsonString $app) + '}}' }
     if ($sub) { $rattrs += ',{"key":"cx.subsystem.name","value":{"stringValue":' + (ConvertTo-JsonString $sub) + '}}' }
+    # roi-service keeps only the hook spans with this source type (the Kafka header of the span).
+    $spanRattrs = $rattrs + ',{"key":"cx.integration.source.type","value":{"stringValue":"anthropic-claude-code"}}'
 
-    $payload = '{"resourceMetrics":[{"resource":{"attributes":[' + $rattrs + ']},' +
-        '"scopeMetrics":[{"scope":{"name":"repo-tracker","version":"1.0.0"},' +
-        '"metrics":[{"name":"claude_code_session_repo_info","gauge":{"dataPoints":[' +
-        ($dps -join ',') + ']}}]}]}]}'
-
-    # --- Emit (errors swallowed; the hook must never disturb the session) ------
     $ep = $endpoint.TrimEnd('/')
     if ($ep -notmatch '^https?://') { $ep = "https://$ep" }
 
-    Invoke-WebRequest -Uri "$ep/v1/metrics" -Method Post `
-        -Body ([Text.Encoding]::UTF8.GetBytes($payload)) `
-        -ContentType 'application/json' `
-        -Headers @{ Authorization = $auth } `
-        -TimeoutSec 5 -UseBasicParsing | Out-Null
+    # --- Span: one per hook event ---------------------------------------------
+    # Hand-built OTLP KeyValue list; empty/null values are omitted. Never add
+    # prompt text, tool input/output, paths or transcript content here.
+    $spanAttrs = New-Object System.Collections.ArrayList
+    function Add-SpanAttr([string]$Key, [string]$Type, $Value) {
+        if ($null -eq $Value -or [string]$Value -eq '') { return }
+        if ($Type -eq 'bool') { $v = '{"boolValue":' + $(if ([bool]$Value) { 'true' } else { 'false' }) + '}' }
+        elseif ($Type -eq 'int') { $v = '{"intValue":"' + [string]$Value + '"}' }
+        else { $v = '{"stringValue":' + (ConvertTo-JsonString ([string]$Value)) + '}' }
+        [void]$spanAttrs.Add('{"key":"' + $Key + '","value":' + $v + '}')
+    }
+
+    Add-SpanAttr 'agent_name' 'string' 'claude-code'
+    Add-SpanAttr 'hook_event' 'string' $evName
+    Add-SpanAttr 'session_id' 'string' $sid
+    Add-SpanAttr 'user_email' 'string' $email
+    Add-SpanAttr 'prompt_id' 'string' $ev.prompt_id
+    Add-SpanAttr 'permission_mode' 'string' $ev.permission_mode
+    Add-SpanAttr 'agent_id' 'string' $ev.agent_id
+    Add-SpanAttr 'agent_type' 'string' $ev.agent_type
+
+    # Target directory: the path the event is about; falls back to its parent,
+    # then to cwd, when the path no longer exists. Only the tools the ROI service
+    # reads as file tools: another tool with a file_path (an MCP tool) keeps cwd.
+    $targetPath = ''
+    if ($evName -eq 'CwdChanged') { $targetPath = [string]$ev.new_cwd }
+    elseif ($evName -eq 'DirectoryAdded') { $targetPath = [string]$ev.directory }
+    elseif ((@('Read','Edit','MultiEdit','Write') -contains $tool) -and $ev.tool_input -and $ev.tool_input.file_path) { $targetPath = [string]$ev.tool_input.file_path }
+    $spanDir = ''
+    foreach ($p in @($targetPath, $cwd)) {
+        if (-not $p) { continue }
+        $d = $p
+        if (-not (Test-Path -LiteralPath $d -PathType Container)) { $d = Split-Path -Parent $p }
+        if ($d -and (Test-Path -LiteralPath $d -PathType Container)) { $spanDir = $d; break }
+    }
+    $spanRoot = $null
+    if ($spanDir) { $spanRoot = Get-RepoRoot $spanDir }
+    if ($spanRoot) {
+        Add-SpanAttr 'vcs_repository_url_full' 'string' (Get-OriginUrl $spanRoot)
+        Add-SpanAttr 'vcs_repository_name' 'string' (Get-RepoName $spanRoot)
+        Add-SpanAttr 'vcs_ref_head_name' 'string' (Get-RepoBranch $spanRoot)
+        Add-SpanAttr 'vcs_ref_head_revision' 'string' (Invoke-GitBounded $spanRoot @('rev-parse', 'HEAD'))
+    }
+
+    switch ($evName) {
+        'SessionStart' {
+            Add-SpanAttr 'session_source' 'string' $ev.source
+            Add-SpanAttr 'model' 'string' $ev.model
+        }
+        'UserPromptSubmit' {
+            Add-SpanAttr 'user_prompt_length' 'int' ([string]$ev.prompt).Length
+        }
+        'PostToolUse' {
+            Add-SpanAttr 'tool_use_id' 'string' $ev.tool_use_id
+            Add-SpanAttr 'gen_ai.tool_call_id' 'string' $ev.tool_use_id
+            Add-SpanAttr 'tool_name' 'string' $ev.tool_name
+            Add-SpanAttr 'tool_success' 'bool' $true
+        }
+        'PostToolUseFailure' {
+            Add-SpanAttr 'tool_use_id' 'string' $ev.tool_use_id
+            Add-SpanAttr 'gen_ai.tool_call_id' 'string' $ev.tool_use_id
+            Add-SpanAttr 'tool_name' 'string' $ev.tool_name
+            Add-SpanAttr 'tool_success' 'bool' $false
+            Add-SpanAttr 'tool_interrupted' 'bool' $ev.is_interrupt
+        }
+        'SessionEnd' {
+            Add-SpanAttr 'session_end_reason' 'string' $ev.reason
+        }
+    }
+
+    # traceId = first 32 hex chars of SHA-256(session_id): every event of a
+    # session lands in the same trace.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $traceId = (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($sid)) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 32)
+    $spanBytes = New-Object byte[] 8
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($spanBytes)
+    $spanId = ($spanBytes | ForEach-Object { $_.ToString('x2') }) -join ''
+
+    # ns since epoch from ticks (100ns units); [long] holds it until year 2262.
+    $endNs = ([DateTime]::UtcNow.Ticks - 621355968000000000) * 100
+    $startNs = $endNs
+    $dur = $ev.duration_ms
+    if (($dur -is [int] -or $dur -is [long]) -and $dur -ge 0) { $startNs = $endNs - ([long]$dur * 1000000) }
+
+    $spanPayload = '{"resourceSpans":[{"resource":{"attributes":[' + $spanRattrs + ']},' +
+        '"scopeSpans":[{"scope":{"name":"agent-hook","version":"2.0.0"},' +
+        '"spans":[{"traceId":"' + $traceId + '","spanId":"' + $spanId + '",' +
+        '"name":"agent_hook.' + $evName + '","kind":1,' +
+        '"startTimeUnixNano":"' + $startNs + '","endTimeUnixNano":"' + $endNs + '",' +
+        '"attributes":[' + ($spanAttrs -join ',') + ']}]}]}]}'
+
+    # --- Emit (errors swallowed; the hook must never disturb the session) ------
+    try {
+        Invoke-WebRequest -Uri "$ep/v1/traces" -Method Post `
+            -Body ([Text.Encoding]::UTF8.GetBytes($spanPayload)) `
+            -ContentType 'application/json' `
+            -Headers @{ Authorization = $auth } `
+            -TimeoutSec 5 -UseBasicParsing | Out-Null
+    } catch {}
+
+    # --- Metric: PostToolUse only ---------------------------------------------
+    if ($sendMetric) {
+        $nowNs = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() * 1000000000).ToString()
+
+        function New-DataPoint([string]$name, [string]$branch) {
+            '{"attributes":[' +
+              '{"key":"session_id","value":{"stringValue":' + (ConvertTo-JsonString $sid) + '}},' +
+              '{"key":"repository_name","value":{"stringValue":' + (ConvertTo-JsonString $name) + '}},' +
+              '{"key":"branch_name","value":{"stringValue":' + (ConvertTo-JsonString $branch) + '}},' +
+              '{"key":"user_email","value":{"stringValue":' + (ConvertTo-JsonString $email) + '}}' +
+              '],"timeUnixNano":"' + $nowNs + '","asInt":"1"}'
+        }
+
+        # Dedupe by repo root AND by resolved name+branch (a linked worktree resolves
+        # to a different root but the same owner/repo; emit one data point per
+        # name+branch, so worktrees on different branches each report).
+        $dps = @()
+        $seenRoots = @(); $seenKeys = @()
+        foreach ($p in @($cwd, $fp)) {
+            if (-not $p) { continue }
+            $d = $p
+            if (-not (Test-Path -LiteralPath $d -PathType Container)) {
+                $d = Split-Path -Parent $p
+            }
+            if (-not $d -or -not (Test-Path -LiteralPath $d -PathType Container)) { continue }
+            $root = Get-RepoRoot $d
+            if (-not $root -or $seenRoots -contains $root) { continue }
+            $seenRoots += $root
+            $name = Get-RepoName $root
+            if (-not $name) { continue }
+            $branch = Get-RepoBranch $root
+            if ($seenKeys -contains "$name $branch") { continue }
+            $seenKeys += "$name $branch"
+            $dps += (New-DataPoint $name $branch)
+        }
+        if ($dps.Count -eq 0) { $dps += (New-DataPoint 'unknown' 'unknown') }
+
+        $payload = '{"resourceMetrics":[{"resource":{"attributes":[' + $rattrs + ']},' +
+            '"scopeMetrics":[{"scope":{"name":"repo-tracker","version":"1.0.0"},' +
+            '"metrics":[{"name":"claude_code_session_repo_info","gauge":{"dataPoints":[' +
+            ($dps -join ',') + ']}}]}]}]}'
+
+        Invoke-WebRequest -Uri "$ep/v1/metrics" -Method Post `
+            -Body ([Text.Encoding]::UTF8.GetBytes($payload)) `
+            -ContentType 'application/json' `
+            -Headers @{ Authorization = $auth } `
+            -TimeoutSec 5 -UseBasicParsing | Out-Null
+    }
 } catch {}
 
 exit 0

@@ -20,7 +20,73 @@
     "OTEL_TRACES_EXPORT_INTERVAL": "1000"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "DirectoryAdded": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
       {
         "hooks": [
           {
