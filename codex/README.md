@@ -13,7 +13,7 @@ Codex CLI emits telemetry via OTel when the `[otel]` block is configured in `~/.
 
 - `config.toml.example` — the OTel block to merge into your Codex config
 - `.env.example` — stores your Coralogix credentials (git-ignored)
-- `hooks/` — a PostToolUse hook that adds the one signal Codex's OTel omits: which repository each session worked in (see [Repo-tracker hook](#repo-tracker-hook-macos))
+- `hooks/` — a PostToolUse hook that adds the one signal Codex's OTel omits: which repository each session worked in (see [Repo-tracker hook](#repo-tracker-hook-macos--windows))
 - `coralogix-codex-dashboard.json` — pre-built dashboard ready to import into Coralogix
 
 Codex supports two external OTel pipelines: `exporter` (logs) and `trace_exporter` (traces). The `metrics_exporter` key defaults to Codex's internal Statsig pipeline and does not support `otlp-http` — metric-like counters (`codex.api_request`, `codex.tool_decision`, etc.) are available as structured fields on log events via the `exporter` pipeline.
@@ -141,9 +141,9 @@ See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advance
 
 ---
 
-## Repo-tracker hook (macOS)
+## Repo-tracker hook (macOS & Windows)
 
-Codex's native OTel events never say **which repository** a session worked in. The [`hooks/codex.sh`](hooks/codex.sh) PostToolUse hook fills that gap: on each tool use it emits an OTLP/JSON gauge metric
+Codex's native OTel events never say **which repository** a session worked in. The [`hooks/codex.sh`](hooks/codex.sh) PostToolUse hook (macOS; [`hooks/codex.ps1`](hooks/codex.ps1) is its Windows twin — see [Windows](#windows)) fills that gap: on each tool use it emits an OTLP/JSON gauge metric
 
 ```
 codex_session_repo_info{session_id, repository_name}
@@ -185,9 +185,9 @@ codex_session_repo_info{session_id, repository_name, agent_id}
 
 **`agent_id` is set only inside a thread-spawned sub-agent**: it is the sub-agent's own thread id — the `conversation.id` its Codex log events, and so its tokens, carry — while `session_id` stays the root session's; a root-thread call has no `agent_id` label. **Without it a sub-agent's tokens have no repo to join to**, because no `session_id` equals their `conversation.id`; `max by (agent_id, repository_name) (last_over_time(codex_session_repo_info{agent_id!=""}[…]))` maps each sub-agent thread to the repos it touched. **Only `codex_session_repo_info` carries it**: commits, PRs, lines and branches stay per root session, and `max by (session_id, repository_name)` over the repo gauge reads exactly as before. A sub-agent call from a hook older than 1.4 has no `agent_id`, so its tokens stay unattributed — understated, never misassigned.
 
-**Zero runtime assumptions**, same design as the [Claude Code repo-tracker](../claude-code/README.md#repo-tracker-hook-macos--windows): only tools that ship with macOS (`/bin/sh`, `plutil`, `awk`, `curl`), `git` optional, every git call bounded to 5s, all errors swallowed — the hook can never disturb or stall a session.
+**Zero runtime assumptions**, same design as the [Claude Code repo-tracker](../claude-code/README.md#repo-tracker-hook-macos--windows): only tools that ship with the OS (`/bin/sh`, `plutil`, `awk`, `curl` on macOS; Windows PowerShell 5.1 on Windows), `git` optional, every git call bounded to 5s, all errors swallowed — the hook can never disturb or stall a session.
 
-**No extra secrets:** the hook reads the same `[otel.exporter.otlp-http]` block Codex exports with — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers — from the MDM-managed `com.openai.codex` preferences first (`config_toml_base64`, the Jamf rollout below), then `~/.codex/config.toml` (the per-user Setup above). `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` / `--managed-prefs` flags exist for manual testing.
+**No extra secrets:** the hook reads the same `[otel.exporter.otlp-http]` block Codex exports with — `endpoint` (its `/v1/logs` suffix is swapped for `/v1/metrics`) and the `Authorization` / `CX-Application-Name` / `CX-Subsystem-Name` headers — from the MDM-managed `com.openai.codex` preferences first (`config_toml_base64`, the Jamf rollout below), then `~/.codex/config.toml` (the per-user Setup above). On Windows the same block is read from the user's `%USERPROFILE%\.codex\config.toml` first, then the machine-wide `%ProgramData%\OpenAI\Codex\config.toml` — the order Codex itself resolves them there. `CX_*` environment variables (the names in `.env.example`) are read as fallbacks, and `--otlp-endpoint` / `--otlp-auth` / `--application-name` / `--subsystem-name` / `--config-file` / `--managed-prefs` flags exist for manual testing (`-OtlpEndpoint` / `-OtlpAuth` / `-ApplicationName` / `-SubsystemName` / `-ConfigFile` on Windows).
 
 ### Org-wide via Jamf (recommended)
 
@@ -218,12 +218,21 @@ The same model as the Claude Code rollout: IT pushes the script and the configur
 
 ### Per-user install (no MDM)
 
+On macOS:
+
 ```bash
 sudo cp hooks/codex.sh /usr/local/bin/codex-repo-tracker.sh
 sudo chmod 755 /usr/local/bin/codex-repo-tracker.sh
 ```
 
-Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json) into `~/.codex/hooks.json` (create the file if it doesn't exist):
+On Windows (PowerShell as administrator):
+
+```powershell
+New-Item -ItemType Directory -Force "C:\ProgramData\Coralogix\codex-hooks" | Out-Null
+Copy-Item hooks\codex.ps1 "C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1"
+```
+
+Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json) into `~/.codex/hooks.json` (`%USERPROFILE%\.codex\hooks.json` on Windows; create the file if it doesn't exist). One file serves both platforms: Codex runs `command` through `/bin/sh` on macOS/Linux and `command_windows` through `cmd.exe` on Windows, and each one no-ops cleanly where its script isn't installed:
 
 ```json
 {
@@ -235,6 +244,7 @@ Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json
           {
             "type": "command",
             "command": "[ -x /usr/local/bin/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/bin/codex-repo-tracker.sh; exit 0",
+            "command_windows": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
             "timeout": 30
           }
         ]
@@ -260,7 +270,17 @@ enabled = true
 
 A hook can be *trusted yet disabled* (`enabled = false`) — a silent no-op that looks exactly like a broken hook. If the metric never arrives, check this flag first. Any edit to `hooks.json` changes the hash and re-triggers the review prompt.
 
-Verified on Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alpha.4.1 — both deliver the full PostToolUse event (`session_id`, `cwd`, `tool_input`, …) to the hook.
+Verified on macOS with Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alpha.4.1 — both deliver the full PostToolUse event (`session_id`, `cwd`, `tool_input`, …) to the hook.
+
+### Windows
+
+[`hooks/codex.ps1`](hooks/codex.ps1) is the Windows twin of `codex.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows and picks the `command_windows` string of a registration, which is why `hooks.example.json` and `requirements.example.toml` carry one entry per platform; the same files serve a mixed fleet.
+
+- **Per-user:** install and register as in [Per-user install](#per-user-install-no-mdm); the file is `%USERPROFILE%\.codex\hooks.json` and the same interactive approval applies.
+- **Fleet:** deploy `codex.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/requirements.example.toml`](hooks/requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves).
+- **Config:** the hook reads the user's `%USERPROFILE%\.codex\config.toml` first, then `%ProgramData%\OpenAI\Codex\config.toml`, then `CX_*` environment variables. The API key is passed to the HTTP call in process, never on a child process's argv.
+
+**Verification status:** `codex.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex.sh`'s contract. It has **not yet run on a real Windows host** (Windows PowerShell 5.1, `cmd.exe` registration, a live Codex): pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
 
 ### Test locally
 
