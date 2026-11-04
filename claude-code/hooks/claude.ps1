@@ -218,8 +218,8 @@ try {
     $rattrs = '{"key":"service.name","value":{"stringValue":"claude-code-hook"}}'
     if ($app) { $rattrs += ',{"key":"cx.application.name","value":{"stringValue":' + (ConvertTo-JsonString $app) + '}}' }
     if ($sub) { $rattrs += ',{"key":"cx.subsystem.name","value":{"stringValue":' + (ConvertTo-JsonString $sub) + '}}' }
-    # roi-service keeps only the hook spans with this source type (the Kafka header of the span).
-    $spanRattrs = $rattrs + ',{"key":"cx.integration.source.type","value":{"stringValue":"anthropic-claude-code"}}'
+    # roi-service filters on the Kafka header cx-source-integration-type. traces-gateway writes it only for a known source type (#436).
+    $spanRattrs = $rattrs + ',{"key":"cx.integration.source.type","value":{"stringValue":"claude_code_agent"}}'
 
     $ep = $endpoint.TrimEnd('/')
     if ($ep -notmatch '^https?://') { $ep = "https://$ep" }
