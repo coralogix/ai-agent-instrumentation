@@ -1,10 +1,10 @@
 # Codex requirements for the repo-tracker hook, delivered fleet-wide as the
 # requirements_toml_base64 key of the com.openai.codex managed preferences
-# (build the plist with make-jamf-plist.sh) on macOS, or as
+# (build the plist with jamf-build-profile.sh) on macOS, or as
 # %ProgramData%\OpenAI\Codex\requirements.toml on Windows. Codex enforces
-# hooks defined here from the managed layer; deploy-jamf.sh installs the
+# hooks defined here from the managed layer; jamf-install-hook.sh installs the
 # script into managed_dir on macOS, and your Windows device management
-# installs codex.ps1 into windows_managed_dir.
+# installs codex-repo-tracker.ps1 into windows_managed_dir.
 #
 # Codex picks the per-platform values itself: managed_dir + command on
 # macOS/Linux, windows_managed_dir + command_windows on Windows (hook commands

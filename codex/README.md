@@ -143,7 +143,7 @@ See the [Codex CLI OTel docs](https://developers.openai.com/codex/config-advance
 
 ## Repo-tracker hook (macOS & Windows)
 
-Codex's native OTel events never say **which repository** a session worked in. The [`hooks/codex.sh`](hooks/codex.sh) PostToolUse hook (macOS; [`hooks/codex.ps1`](hooks/codex.ps1) is its Windows twin — see [Windows](#windows)) fills that gap: on each tool use it emits an OTLP/JSON gauge metric
+Codex's native OTel events never say **which repository** a session worked in. The [`hooks/codex-repo-tracker.sh`](hooks/codex-repo-tracker.sh) PostToolUse hook (macOS; [`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is its Windows twin — see [Windows](#windows)) fills that gap: on each tool use it emits an OTLP/JSON gauge metric
 
 ```
 codex_session_repo_info{session_id, repository_name}
@@ -195,16 +195,16 @@ The same model as the Claude Code rollout: IT pushes the script and the configur
 
 | Preference key | Carries | Built from |
 |---|---|---|
-| `requirements_toml_base64` | the hook registration — `[hooks]` with `managed_dir`, plus `[features].hooks = true` so it runs even where a user turned hooks off | [`hooks/requirements.example.toml`](hooks/requirements.example.toml) |
+| `requirements_toml_base64` | the hook registration — `[hooks]` with `managed_dir`, plus `[features].hooks = true` so it runs even where a user turned hooks off | [`hooks/managed-requirements.example.toml`](hooks/managed-requirements.example.toml) |
 | `config_toml_base64` | the `[otel]` block — Codex's own log export, and the endpoint/key the hook reads | [`config.toml.example`](config.toml.example) with your values |
 
-1. **Policy:** run [`hooks/deploy-jamf.sh`](hooks/deploy-jamf.sh) as a Jamf Policy script. It installs the hook at `/usr/local/coralogix/codex-hooks/codex-repo-tracker.sh`. Scope it before, or together with, the profile — Codex requires `managed_dir` to exist before it loads managed hooks.
+1. **Policy:** run [`hooks/jamf-install-hook.sh`](hooks/jamf-install-hook.sh) as a Jamf Policy script. It installs the hook at `/usr/local/coralogix/codex-hooks/codex-repo-tracker.sh`. Scope it before, or together with, the profile — Codex requires `managed_dir` to exist before it loads managed hooks.
 2. **Configuration profile:** build the plist and upload it under *Application & Custom Settings → Upload*, preference domain `com.openai.codex`:
 
    ```bash
    set -a; source .env; set +a
    envsubst < config.toml.example > /tmp/codex-managed.toml
-   ./hooks/make-jamf-plist.sh hooks/requirements.example.toml /tmp/codex-managed.toml > com.openai.codex.plist
+   ./hooks/jamf-build-profile.sh hooks/managed-requirements.example.toml /tmp/codex-managed.toml > com.openai.codex.plist
    ```
 
    The plist holds your send key — keep it out of git. On each Mac it sits under `/Library/Managed Preferences/`, the same exposure as Claude Code's `managed-settings.json`.
@@ -221,7 +221,7 @@ The same model as the Claude Code rollout: IT pushes the script and the configur
 On macOS:
 
 ```bash
-sudo cp hooks/codex.sh /usr/local/bin/codex-repo-tracker.sh
+sudo cp hooks/codex-repo-tracker.sh /usr/local/bin/codex-repo-tracker.sh
 sudo chmod 755 /usr/local/bin/codex-repo-tracker.sh
 ```
 
@@ -229,10 +229,10 @@ On Windows (PowerShell as administrator):
 
 ```powershell
 New-Item -ItemType Directory -Force "C:\ProgramData\Coralogix\codex-hooks" | Out-Null
-Copy-Item hooks\codex.ps1 "C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1"
+Copy-Item hooks\codex-repo-tracker.ps1 "C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1"
 ```
 
-Then register it — merge [`hooks/hooks.example.json`](hooks/hooks.example.json) into `~/.codex/hooks.json` (`%USERPROFILE%\.codex\hooks.json` on Windows; create the file if it doesn't exist). One file serves both platforms: Codex runs `command` through `/bin/sh` on macOS/Linux and `command_windows` through `cmd.exe` on Windows, and each one no-ops cleanly where its script isn't installed:
+Then register it — merge [`hooks/user-hooks.example.json`](hooks/user-hooks.example.json) into `~/.codex/hooks.json` (`%USERPROFILE%\.codex\hooks.json` on Windows; create the file if it doesn't exist). One file serves both platforms: Codex runs `command` through `/bin/sh` on macOS/Linux and `command_windows` through `cmd.exe` on Windows, and each one no-ops cleanly where its script isn't installed:
 
 ```json
 {
@@ -274,13 +274,13 @@ Verified on macOS with Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alp
 
 ### Windows
 
-[`hooks/codex.ps1`](hooks/codex.ps1) is the Windows twin of `codex.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows and picks the `command_windows` string of a registration, which is why `hooks.example.json` and `requirements.example.toml` carry one entry per platform; the same files serve a mixed fleet.
+[`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is the Windows twin of `codex-repo-tracker.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows and picks the `command_windows` string of a registration, which is why `user-hooks.example.json` and `managed-requirements.example.toml` carry one entry per platform; the same files serve a mixed fleet.
 
 - **Per-user:** install and register as in [Per-user install](#per-user-install-no-mdm); the file is `%USERPROFILE%\.codex\hooks.json` and the same interactive approval applies.
-- **Fleet:** deploy `codex.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/requirements.example.toml`](hooks/requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves).
+- **Fleet:** deploy `codex-repo-tracker.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/managed-requirements.example.toml`](hooks/managed-requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves).
 - **Config:** the hook reads the user's `%USERPROFILE%\.codex\config.toml` first, then `%ProgramData%\OpenAI\Codex\config.toml`, then `CX_*` environment variables. The API key is passed to the HTTP call in process, never on a child process's argv.
 
-**Verification status:** `codex.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex.sh`'s contract. It has **not yet run on a real Windows host** (Windows PowerShell 5.1, `cmd.exe` registration, a live Codex): pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
+**Verification status:** `codex-repo-tracker.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex-repo-tracker.sh`'s contract. It has **not yet run on a real Windows host** (Windows PowerShell 5.1, `cmd.exe` registration, a live Codex): pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
 
 ### Test locally
 
@@ -293,7 +293,7 @@ Verified on macOS with Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alp
 To test the Jamf config path without an MDM, point the hook at the plist you built:
 
 ```bash
-HOOK_CMD='/bin/sh hooks/codex.sh --managed-prefs=com.openai.codex.plist' ./hooks/test-hook-local.sh
+HOOK_CMD='/bin/sh hooks/codex-repo-tracker.sh --managed-prefs=com.openai.codex.plist' ./hooks/test-hook-local.sh
 ```
 
 The hook swallows all errors and exits 0 by design, so exit 0 does **not** prove delivery — confirm with the printed `codex_session_repo_info{session_id="localtest-…"}` query.

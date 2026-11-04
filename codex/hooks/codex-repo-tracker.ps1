@@ -12,7 +12,7 @@
 
 # Codex CLI PostToolUse hook that tracks repository names per session (Windows).
 #
-# The Windows variant of hooks/codex.sh, emitting the same OTLP/JSON gauges
+# The Windows variant of hooks/codex-repo-tracker.sh, emitting the same OTLP/JSON gauges
 # with the same labels and the same counting rules:
 #   codex_session_repo_info{session_id, repository_name[, agent_id]}
 #   codex_session_branch_info{session_id, repository_name, branch_name}
@@ -27,7 +27,7 @@
 # optional: repo detection degrades to "unknown" without it, and every git
 # call is bounded to 5s so a stale mount can never hang the session. Codex
 # runs hook commands through cmd.exe on Windows; register this script via
-# powershell.exe -File (see hooks.example.json, command_windows).
+# powershell.exe -File (see user-hooks.example.json, command_windows).
 #
 # Config comes from the same [otel] block Codex itself exports with - one
 # config serves Codex's native telemetry and this hook, with no duplicated
@@ -159,7 +159,7 @@ try {
     # --- Config resolution: flags > config file > CX_* environment, where the
     # config file is -ConfigFile > user config.toml > machine-wide managed
     # defaults. A candidate without the exporter endpoint leaves the next file
-    # in charge, mirroring codex.sh's managed-then-user fallback.
+    # in charge, mirroring codex-repo-tracker.sh's managed-then-user fallback.
     $codexHome = $env:CODEX_HOME
     if (-not $codexHome -and $env:USERPROFILE) { $codexHome = Join-Path $env:USERPROFILE '.codex' }
 
@@ -269,7 +269,7 @@ try {
     }
 
     # --- Commit / line / PR counting (per session x repo, cumulative) ---------
-    # Same rules as codex.sh: commits are VERIFIED against git, never parsed
+    # Same rules as codex-repo-tracker.sh: commits are VERIFIED against git, never parsed
     # out of command text. The state file keeps the last HEAD seen for this
     # (session, repo), the four running totals, and the SHA of every commit
     # already counted, so no commit is counted twice. A non-linear move (a

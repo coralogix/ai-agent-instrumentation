@@ -11,7 +11,7 @@
 # Codex expects both as base64 TOML without line wrapping.
 #
 # Usage:
-#   ./hooks/make-jamf-plist.sh hooks/requirements.example.toml <config.toml> \
+#   ./hooks/jamf-build-profile.sh hooks/managed-requirements.example.toml <config.toml> \
 #     > com.openai.codex.plist
 #
 # <config.toml> is codex/config.toml.example with your values filled in, e.g.

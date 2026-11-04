@@ -4,9 +4,9 @@
 # Target Path: /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh
 #
 # Runs as root via Jamf policy. Writes the PostToolUse hook into the managed
-# hook directory that requirements.example.toml registers (hooks.managed_dir),
+# hook directory that managed-requirements.example.toml registers (hooks.managed_dir),
 # so Codex runs it from the managed layer — no per-user hooks.json, no per-user
-# review. The script below is kept byte-for-byte in sync with codex/hooks/codex.sh.
+# review. The script below is kept byte-for-byte in sync with codex/hooks/codex-repo-tracker.sh.
 #
 # No preflight checks needed: the hook uses only tools that ship with macOS
 # itself (/bin/sh, plutil, awk, curl) — zero runtime dependencies to verify.

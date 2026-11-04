@@ -7,11 +7,11 @@
 #   - config read by the hook itself from ~/.codex/config.toml (the same
 #     [otel.exporter.otlp-http] block Codex exports with)
 #
-# Iterate on hooks/codex.sh and re-run this — no trust re-approval needed,
+# Iterate on hooks/codex-repo-tracker.sh and re-run this — no trust re-approval needed,
 # because Codex itself is not involved.
 #
 # Usage:
-#   ./hooks/test-hook-local.sh                 # runs ./hooks/codex.sh
+#   ./hooks/test-hook-local.sh                 # runs ./hooks/codex-repo-tracker.sh
 #   ./hooks/test-hook-local.sh /usr/local/bin/codex-repo-tracker.sh
 #   HOOK_CMD='...' ./hooks/test-hook-local.sh  # test an exact command string
 #
@@ -22,7 +22,7 @@ set -e
 
 # Resolve the script path to test (default: the repo copy next to this file).
 SCRIPT_DIR="${0:A:h}"
-HOOK_SCRIPT="${1:-$SCRIPT_DIR/codex.sh}"
+HOOK_SCRIPT="${1:-$SCRIPT_DIR/codex-repo-tracker.sh}"
 
 # The command Codex would run. Override with HOOK_CMD to test the exact
 # command string from hooks.json.
