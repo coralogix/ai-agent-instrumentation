@@ -11,10 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Claude Code PostToolUse hook that tracks repository names per session (macOS).
+# Claude Code hook that reports session activity and repositories (macOS).
 #
-# Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, branch_name, user_email} on each tool use.
+# Sends one OTLP/JSON span "agent_hook.<event>" to /v1/traces for each of:
+# SessionStart, UserPromptSubmit, PostToolUse, PostToolUseFailure, CwdChanged,
+# DirectoryAdded, SessionEnd (other events are ignored). The span carries the
+# session/user ids, per-event fields and the vcs_* attributes of the target
+# repo; never prompt text, tool input/output or file paths. On PostToolUse it
+# also sends the OTLP/JSON gauge metric claude_code_session_repo_info with
+# labels {session_id, repository_name, branch_name, user_email} to /v1/metrics.
 #
 # ZERO runtime assumptions: uses only tools that ship with macOS itself —
 # /bin/sh, plutil (JSON parsing), curl (HTTPS), awk, uname, mktemp. No node, no
@@ -124,7 +129,7 @@ IFS=$_oldifs
 [ -n "$SUB" ] || SUB="$(get_cfg CX_HOOK_SUBSYSTEM_NAME)"
 
 # ---------------------------------------------------------------------------
-# Event (PostToolUse JSON on stdin)
+# Event (hook JSON on stdin)
 # ---------------------------------------------------------------------------
 EV="$(mktemp "${TMPDIR:-/tmp}/cx-hook.XXXXXX")" || exit 0
 trap 'rm -f "$EV"' EXIT
@@ -134,6 +139,13 @@ get_ev() { plutil -extract "$1" raw -o - "$EV" 2>/dev/null; }
 
 SID="$(get_ev session_id)"
 [ -n "$SID" ] || exit 0
+# Empty event name = PostToolUse, for old registrations and the test harness.
+HOOK="$(get_ev hook_event_name)"
+[ -n "$HOOK" ] || HOOK="PostToolUse"
+case "$HOOK" in
+  SessionStart|UserPromptSubmit|PostToolUse|PostToolUseFailure|CwdChanged|DirectoryAdded|SessionEnd) ;;
+  *) exit 0 ;;
+esac
 EV_CWD="$(get_ev cwd)"
 TOOL="$(get_ev tool_name)"
 FP=""
@@ -142,7 +154,6 @@ case "$TOOL" in
   Glob|Grep)                    FP="$(get_ev tool_input.path)" ;;
 esac
 EMAIL="$(get_ev user_email)"
-[ -n "$EV_CWD$FP" ] || exit 0
 
 # ---------------------------------------------------------------------------
 # Repo detection (git optional). Resolve an ABSOLUTE git binary instead of
@@ -172,7 +183,8 @@ fi
 git_bounded() { # git args...; echoes stdout; returns git rc; SIGTERM'd after 5s
   _o="$(mktemp "${TMPDIR:-/tmp}/cx-git.XXXXXX")" || return 1
   "$GIT_BIN" "$@" >"$_o" 2>/dev/null & _gp=$!
-  ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) & _gw=$!
+  # Detach the watchdog from stdout, or its sleep holds the $(...) pipe open for 5s.
+  ( sleep 5; kill -TERM "$_gp" 2>/dev/null ) </dev/null >/dev/null 2>&1 & _gw=$!
   wait "$_gp" 2>/dev/null; _rc=$?
   kill -TERM "$_gw" 2>/dev/null; wait "$_gw" 2>/dev/null
   cat "$_o"; rm -f "$_o"
@@ -184,8 +196,13 @@ repo_root() { # $1=dir
   git_bounded -C "$1" rev-parse --show-toplevel
 }
 
+origin_url() { # $1=repo root -> origin URL with no user or password
+  # An https remote can hold a token (https://user:token@host/...): never send it.
+  git_bounded -C "$1" remote get-url origin | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@#\1#'
+}
+
 repo_name() { # $1=repo root -> owner/repo (or basename fallback)
-  url="$(git_bounded -C "$1" remote get-url origin)"
+  url="$(origin_url "$1")"
   if [ -n "$url" ]; then
     u="${url%/}"; u="${u%.git}"
     u="$(printf '%s' "$u" | tr ':' '/')"
@@ -222,9 +239,122 @@ json_escape() {
     }'
 }
 
+RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"claude-code-hook\"}}"
+[ -n "$APP" ] && RATTRS="$RATTRS,{\"key\":\"cx.application.name\",\"value\":{\"stringValue\":\"$(json_escape "$APP")\"}}"
+[ -n "$SUB" ] && RATTRS="$RATTRS,{\"key\":\"cx.subsystem.name\",\"value\":{\"stringValue\":\"$(json_escape "$SUB")\"}}"
+# roi-service keeps only the hook spans with this source type (the Kafka header of the span).
+SPAN_RATTRS="$RATTRS,{\"key\":\"cx.integration.source.type\",\"value\":{\"stringValue\":\"anthropic-claude-code\"}}"
+
+case "$EP" in
+  http://*|https://*) ;;
+  *) EP="https://$EP" ;;
+esac
+EP="${EP%/}"
+
 # ---------------------------------------------------------------------------
-# Build OTLP/JSON payload
+# Span (every listed event). Errors swallowed by design; the hook must never
+# disturb the session.
 # ---------------------------------------------------------------------------
+SATTRS=""
+add_str() { # $1=key $2=value -> string attribute, skipped when empty
+  [ -n "$2" ] || return 0
+  SATTRS="${SATTRS:+$SATTRS,}{\"key\":\"$1\",\"value\":{\"stringValue\":\"$(json_escape "$2")\"}}"
+}
+add_typed() { # $1=key $2=boolValue|intValue $3=value -> skipped unless valid
+  case "$2:$3" in
+    boolValue:true|boolValue:false) _v="$3" ;;
+    intValue:*[!0-9]*|intValue:) return 0 ;;
+    intValue:*) _v="\"$3\"" ;;
+    *) return 0 ;;
+  esac
+  SATTRS="${SATTRS:+$SATTRS,}{\"key\":\"$1\",\"value\":{\"$2\":$_v}}"
+}
+
+add_str agent_name "claude-code"
+add_str hook_event "$HOOK"
+add_str session_id "$SID"
+add_str user_email "$EMAIL"
+for _k in prompt_id permission_mode agent_id agent_type; do
+  add_str "$_k" "$(get_ev "$_k")"
+done
+
+case "$HOOK" in
+  SessionStart)
+    add_str session_source "$(get_ev source)"
+    add_str model "$(get_ev model)"
+    ;;
+  UserPromptSubmit)
+    # Length only, never the text. plutil appends one newline: count minus 1.
+    _n="$(get_ev prompt | LC_ALL=en_US.UTF-8 wc -m | tr -d ' ')"
+    [ "${_n:-0}" -gt 0 ] 2>/dev/null && add_typed user_prompt_length intValue "$((_n - 1))"
+    ;;
+  PostToolUse|PostToolUseFailure)
+    _tid="$(get_ev tool_use_id)"
+    add_str tool_use_id "$_tid"
+    add_str gen_ai.tool_call_id "$_tid"
+    add_str tool_name "$TOOL"
+    if [ "$HOOK" = "PostToolUse" ]; then
+      add_typed tool_success boolValue true
+    else
+      add_typed tool_success boolValue false
+      add_typed tool_interrupted boolValue "$(get_ev is_interrupt)"
+    fi
+    ;;
+  SessionEnd)
+    add_str session_end_reason "$(get_ev reason)"
+    ;;
+esac
+
+# VCS of the target directory: the new/added dir for CwdChanged/DirectoryAdded,
+# else the file_path of a file tool, else cwd. Missing path -> its dirname -> cwd.
+# Only the tools the ROI service reads as file tools: another tool with a
+# file_path (an MCP tool) keeps the cwd repo.
+TGT=""
+case "$HOOK" in
+  CwdChanged)     TGT="$(get_ev new_cwd)" ;;
+  DirectoryAdded) TGT="$(get_ev directory)" ;;
+  *)
+    case "$TOOL" in
+      Read|Edit|MultiEdit|Write) TGT="$(get_ev tool_input.file_path)" ;;
+    esac
+    ;;
+esac
+[ -n "$TGT" ] || TGT="$EV_CWD"
+[ -n "$TGT" ] && [ ! -d "$TGT" ] && TGT="$(dirname "$TGT")"
+[ -d "$TGT" ] || TGT="$EV_CWD"
+ROOT=""
+[ -n "$TGT" ] && [ -d "$TGT" ] && ROOT="$(repo_root "$TGT")" || ROOT=""
+if [ -n "$ROOT" ]; then
+  add_str vcs_repository_url_full "$(origin_url "$ROOT")"
+  add_str vcs_repository_name "$(repo_name "$ROOT")"
+  add_str vcs_ref_head_name "$(repo_branch "$ROOT")"
+  add_str vcs_ref_head_revision "$(git_bounded -C "$ROOT" rev-parse --verify -q HEAD)"
+fi
+
+# macOS date has no %N; perl (when present) gives ns precision.
+END_NS="$(perl -MTime::HiRes=time -e 'printf("%.0f", time()*1e9)' 2>/dev/null)"
+case "$END_NS" in ''|*[!0-9]*) END_NS="$(date +%s)000000000" ;; esac
+START_NS="$END_NS"
+_dur="$(get_ev duration_ms)"
+case "$_dur" in ''|*[!0-9]*) ;; *) START_NS=$(( END_NS - _dur * 1000000 )) ;; esac
+
+# traceId = first 32 hex of SHA-256(session_id), so all spans of a session join.
+TRACE_ID="$( { printf '%s' "$SID" | shasum -a 256 2>/dev/null || printf '%s' "$SID" | openssl dgst -sha256 -r 2>/dev/null; } | cut -c1-32)"
+SPAN_ID="$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+
+if [ ${#TRACE_ID} -eq 32 ] && [ ${#SPAN_ID} -eq 16 ]; then
+  SPAN="{\"traceId\":\"$TRACE_ID\",\"spanId\":\"$SPAN_ID\",\"name\":\"agent_hook.$HOOK\",\"kind\":1,\"startTimeUnixNano\":\"$START_NS\",\"endTimeUnixNano\":\"$END_NS\",\"attributes\":[$SATTRS]}"
+  curl -s -o /dev/null --max-time 5 -X POST "$EP/v1/traces" \
+    -H 'Content-Type: application/json' \
+    -H "Authorization: $AUTH" \
+    --data-binary "{\"resourceSpans\":[{\"resource\":{\"attributes\":[$SPAN_RATTRS]},\"scopeSpans\":[{\"scope\":{\"name\":\"agent-hook\",\"version\":\"2.0.0\"},\"spans\":[$SPAN]}]}]}" 2>/dev/null
+fi
+
+# ---------------------------------------------------------------------------
+# Metric (PostToolUse only): build OTLP/JSON payload
+# ---------------------------------------------------------------------------
+[ "$HOOK" = "PostToolUse" ] && [ -n "$EV_CWD$FP" ] || exit 0
+
 NOW_NS=$(( $(date +%s) * 1000000000 ))
 SID_E="$(json_escape "$SID")"
 EMAIL_E="$(json_escape "$EMAIL")"
@@ -261,21 +391,11 @@ for p in "$EV_CWD" "$FP"; do
 done
 [ -n "$DPS" ] || add_dp "unknown" "unknown"
 
-RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"claude-code-hook\"}}"
-[ -n "$APP" ] && RATTRS="$RATTRS,{\"key\":\"cx.application.name\",\"value\":{\"stringValue\":\"$(json_escape "$APP")\"}}"
-[ -n "$SUB" ] && RATTRS="$RATTRS,{\"key\":\"cx.subsystem.name\",\"value\":{\"stringValue\":\"$(json_escape "$SUB")\"}}"
-
 PAYLOAD="{\"resourceMetrics\":[{\"resource\":{\"attributes\":[$RATTRS]},\"scopeMetrics\":[{\"scope\":{\"name\":\"repo-tracker\",\"version\":\"1.0.0\"},\"metrics\":[{\"name\":\"claude_code_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}]}]}]}"
 
 # ---------------------------------------------------------------------------
 # Emit (errors swallowed by design; the hook must never disturb the session)
 # ---------------------------------------------------------------------------
-case "$EP" in
-  http://*|https://*) ;;
-  *) EP="https://$EP" ;;
-esac
-EP="${EP%/}"
-
 curl -s -o /dev/null --max-time 5 -X POST "$EP/v1/metrics" \
   -H 'Content-Type: application/json' \
   -H "Authorization: $AUTH" \

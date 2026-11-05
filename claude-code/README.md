@@ -206,7 +206,73 @@ Paste this into the admin console's **Managed settings** dialog (or deliver it a
     "OTEL_TRACES_EXPORT_INTERVAL": "1000"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "DirectoryAdded": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
       {
         "hooks": [
           {
@@ -226,7 +292,11 @@ No credentials appear in the `command` — the endpoint, key, and resource attri
 - **macOS** (`hooks/claude.sh`): uses only tools that ship with macOS itself — `/bin/sh`, `plutil` (JSON parsing), `curl` (HTTPS). Works under GUI-launched Claude Code with a bare-bones `PATH`.
 - **Windows** (`hooks/claude.ps1`): requires only Windows PowerShell 5.1, which ships with every Windows 10/11.
 - `git` is optional on both, and resolved by absolute path rather than through `PATH` — the hook checks `/opt/homebrew`, `/usr/local`, the developer-tools locations, then anything on `PATH` that is not the `/usr/bin/git` stub (execing that stub is what pops Apple's install dialog on machines without the tools). So a Homebrew git still works under the bare-bones `PATH`; only a machine with no git at all degrades `repository_name` to `unknown`.
-- Metrics are sent as **OTLP/JSON** (`Content-Type: application/json`) to the same `/v1/metrics` ingress endpoint — semantically identical to the protobuf encoding, but buildable with OS-native tools.
+- Data is sent as **OTLP/JSON** (`Content-Type: application/json`) to the same ingress endpoint — semantically identical to the protobuf encoding, but buildable with OS-native tools.
+
+**What the hook sends:** the command is registered for `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `PostToolUseFailure`, `CwdChanged`, `DirectoryAdded` and `SessionEnd`. Every entry is `async` except `SessionEnd` (synchronous so it is not killed at exit), so the hook never delays a prompt or a tool call.
+- **Span** (every event, `/v1/traces`): name `agent_hook.<event>`, `traceId` = first 32 hex chars of SHA-256(`session_id`), so one trace per session. Attributes: `agent_name`, `hook_event`, `session_id`, `user_email`, `prompt_id`, `permission_mode`, `agent_id`, `agent_type`; `vcs_repository_url_full`, `vcs_repository_name`, `vcs_ref_head_name`, `vcs_ref_head_revision` (inside a git repo only); per event `session_source`, `model` (SessionStart), `user_prompt_length` (UserPromptSubmit), `tool_use_id`, `gen_ai.tool_call_id`, `tool_name`, `tool_success`, `tool_interrupted` (PostToolUse/PostToolUseFailure), `session_end_reason` (SessionEnd). Never prompt text, tool input/output or file paths.
+- **Metric** (PostToolUse only, `/v1/metrics`): gauge `claude_code_session_repo_info` with labels `session_id`, `repository_name`, `branch_name`, `user_email`.
 
 **How the OS disambiguation works:** Claude Code executes hook commands through `sh` on macOS and **Git Bash** on Windows, so a single `case "$(uname -s)"` branches both — `Darwin` runs the sh hook, `MINGW*/MSYS*` runs PowerShell with the ps1 hook, anything else is a silent no-op. Each branch guards on the hook file existing (`[ -x … ]` / `[ -f … ]`) and otherwise exits 0, so during rollout — when the managed settings can reach a machine before the MDM policy has staged the hook file — the command is a clean no-op instead of a per-tool-use error. Deploy targets:
 - **macOS:** `/usr/local/bin/claude.sh`, via `hooks/deploy-jamf.sh` (a Jamf Policy script)
