@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "[ -x /usr/local/bin/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/bin/codex-repo-tracker.sh; exit 0",
-            "commandWindows": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/codex-hooks/codex-repo-tracker.ps1",
             "timeout": 30
           }
         ]

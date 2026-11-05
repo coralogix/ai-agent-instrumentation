@@ -7,9 +7,10 @@
 # installs codex-repo-tracker.ps1 into windows_managed_dir.
 #
 # Codex picks the per-platform values itself: managed_dir + command on
-# macOS/Linux, windows_managed_dir + command_windows on Windows (hook commands
-# run through /bin/sh there and cmd.exe here), so one file serves a mixed
-# fleet.
+# macOS/Linux, windows_managed_dir + command_windows on Windows, so one file
+# serves a mixed fleet. The Windows command is a direct powershell.exe call,
+# with no cmd.exe syntax: the Windows ChatGPT app does not run hook commands
+# as cmd.exe command lines.
 #
 # allow_managed_hooks_only is deliberately not set: it would switch off every
 # hook users configured themselves.
@@ -28,5 +29,5 @@ matcher = ".*"
 [[hooks.PostToolUse.hooks]]
 type = "command"
 command = "[ -x /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh; exit 0"
-command_windows = 'if exist C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1'
+command_windows = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/codex-hooks/codex-repo-tracker.ps1'
 timeout = 30

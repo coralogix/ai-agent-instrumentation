@@ -25,9 +25,9 @@
 # ZERO runtime assumptions: requires only Windows PowerShell 5.1, which ships
 # with every Windows 10/11. No node, no python, no binaries to sign. git is
 # optional: repo detection degrades to "unknown" without it, and every git
-# call is bounded to 5s so a stale mount can never hang the session. Codex
-# runs hook commands through cmd.exe on Windows; register this script via
-# powershell.exe -File (see user-hooks.windows.example.json).
+# call is bounded to 5s so a stale mount can never hang the session. Register
+# it with a direct powershell.exe -File call, no cmd.exe syntax (see
+# user-hooks.windows.example.json).
 #
 # Config comes from the same [otel] block Codex itself exports with - one
 # config serves Codex's native telemetry and this hook, with no duplicated

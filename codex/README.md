@@ -244,7 +244,7 @@ Then register it in `~/.codex/hooks.json` (create the file if it doesn't exist).
           {
             "type": "command",
             "command": "[ -x /usr/local/bin/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/bin/codex-repo-tracker.sh; exit 0",
-            "commandWindows": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
+            "commandWindows": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/codex-hooks/codex-repo-tracker.ps1",
             "timeout": 30
           }
         ]
@@ -254,7 +254,7 @@ Then register it in `~/.codex/hooks.json` (create the file if it doesn't exist).
 }
 ```
 
-On Windows, merge [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.windows.example.json) into `%USERPROFILE%\.codex\hooks.json` instead. **The PowerShell call goes in `command` itself**: the Codex in the Windows ChatGPT app ignores `commandWindows` and runs `command` through `cmd.exe`, so a macOS `command` there fails every tool call with `hook exited with code 1`:
+On Windows, merge [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.windows.example.json) into `%USERPROFILE%\.codex\hooks.json` instead. **`command` itself is a direct `powershell.exe -File` call**: the Codex in the Windows ChatGPT app ignores `commandWindows`, and does not run `command` as a `cmd.exe` command line, so a macOS `command` or a `cmd.exe` wrapper such as `if exist …` fails every tool call with `hook exited with code 1`. With no `if exist` guard, a missing script shows as a failed hook instead of a silent no-op:
 
 ```json
 {
@@ -265,7 +265,7 @@ On Windows, merge [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.win
         "hooks": [
           {
             "type": "command",
-            "command": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/codex-hooks/codex-repo-tracker.ps1",
             "timeout": 30
           }
         ]
@@ -295,13 +295,13 @@ Verified on macOS with Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alp
 
 ### Windows
 
-[`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is the Windows twin of `codex-repo-tracker.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows.
+[`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is the Windows twin of `codex-repo-tracker.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Register it with a direct `powershell.exe -File` call; the Windows ChatGPT app does not run hook commands as `cmd.exe` command lines.
 
 - **Per-user:** install and register as in [Per-user install](#per-user-install-no-mdm), with [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.windows.example.json); the file is `%USERPROFILE%\.codex\hooks.json` and the same interactive approval applies.
 - **Fleet:** deploy `codex-repo-tracker.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/managed-requirements.example.toml`](hooks/managed-requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves). Whether the Windows ChatGPT app honours `command_windows` in the managed layer is not verified yet; it ignores the per-user `commandWindows`.
 - **Config:** the hook reads the user's `%USERPROFILE%\.codex\config.toml` first, then `%ProgramData%\OpenAI\Codex\config.toml`, then `CX_*` environment variables. The API key is passed to the HTTP call in process, never on a child process's argv.
 
-**Verification status:** `codex-repo-tracker.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex-repo-tracker.sh`'s contract. On a real Windows host, the installed script run through `cmd.exe` exits 0 and its metrics reach Coralogix. A live Codex run with the Windows `command` is still to be confirmed: pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
+**Verification status:** `codex-repo-tracker.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex-repo-tracker.sh`'s contract. On a real Windows host with the Windows ChatGPT app, a live Codex session registered through `user-hooks.windows.example.json` delivered all six gauges to Coralogix. The managed `command_windows` path is not verified on Windows yet: pilot on one machine — restart Codex, confirm `codex_session_repo_info` arrives — before any fleet rollout.
 
 ### Test locally
 
