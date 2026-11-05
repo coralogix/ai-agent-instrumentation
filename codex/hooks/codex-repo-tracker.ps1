@@ -27,7 +27,7 @@
 # optional: repo detection degrades to "unknown" without it, and every git
 # call is bounded to 5s so a stale mount can never hang the session. Codex
 # runs hook commands through cmd.exe on Windows; register this script via
-# powershell.exe -File (see user-hooks.example.json, command_windows).
+# powershell.exe -File (see user-hooks.example.json, commandWindows).
 #
 # Config comes from the same [otel] block Codex itself exports with - one
 # config serves Codex's native telemetry and this hook, with no duplicated
