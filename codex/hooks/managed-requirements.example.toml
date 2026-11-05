@@ -1,0 +1,33 @@
+# Codex requirements for the repo-tracker hook, delivered fleet-wide as the
+# requirements_toml_base64 key of the com.openai.codex managed preferences
+# (build the plist with jamf-build-profile.sh) on macOS, or as
+# %ProgramData%\OpenAI\Codex\requirements.toml on Windows. Codex enforces
+# hooks defined here from the managed layer; jamf-install-hook.sh installs the
+# script into managed_dir on macOS, and your Windows device management
+# installs codex-repo-tracker.ps1 into windows_managed_dir.
+#
+# Codex picks the per-platform values itself: managed_dir + command on
+# macOS/Linux, windows_managed_dir + command_windows on Windows, so one file
+# serves a mixed fleet. The Windows command is a direct powershell.exe call,
+# with no cmd.exe syntax: the Windows ChatGPT app does not run hook commands
+# as cmd.exe command lines.
+#
+# allow_managed_hooks_only is deliberately not set: it would switch off every
+# hook users configured themselves.
+
+[features]
+# Keeps hooks running for users who turned the feature off locally.
+hooks = true
+
+[hooks]
+managed_dir = "/usr/local/coralogix/codex-hooks"
+windows_managed_dir = 'C:\ProgramData\Coralogix\codex-hooks'
+
+[[hooks.PostToolUse]]
+matcher = ".*"
+
+[[hooks.PostToolUse.hooks]]
+type = "command"
+command = "[ -x /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/coralogix/codex-hooks/codex-repo-tracker.sh; exit 0"
+command_windows = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/codex-hooks/codex-repo-tracker.ps1'
+timeout = 30
