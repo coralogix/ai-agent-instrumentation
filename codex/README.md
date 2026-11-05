@@ -232,7 +232,7 @@ New-Item -ItemType Directory -Force "C:\ProgramData\Coralogix\codex-hooks" | Out
 Copy-Item hooks\codex-repo-tracker.ps1 "C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1"
 ```
 
-Then register it — merge [`hooks/user-hooks.example.json`](hooks/user-hooks.example.json) into `~/.codex/hooks.json` (`%USERPROFILE%\.codex\hooks.json` on Windows; create the file if it doesn't exist). One file serves both platforms: Codex runs `command` through `/bin/sh` on macOS/Linux and `commandWindows` through `cmd.exe` on Windows (in `hooks.json` the key must be `commandWindows`: a Windows build that ignores `command_windows` falls back to `command`, which `cmd.exe` fails with exit code 1; `command_windows` is the TOML name), and each one no-ops cleanly where its script isn't installed:
+Then register it in `~/.codex/hooks.json` (create the file if it doesn't exist). On macOS, merge [`hooks/user-hooks.example.json`](hooks/user-hooks.example.json); Codex runs `command` through `/bin/sh`, and it no-ops cleanly where the script isn't installed:
 
 ```json
 {
@@ -245,6 +245,27 @@ Then register it — merge [`hooks/user-hooks.example.json`](hooks/user-hooks.ex
             "type": "command",
             "command": "[ -x /usr/local/bin/codex-repo-tracker.sh ] && exec /bin/sh /usr/local/bin/codex-repo-tracker.sh; exit 0",
             "commandWindows": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+On Windows, merge [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.windows.example.json) into `%USERPROFILE%\.codex\hooks.json` instead. **The PowerShell call goes in `command` itself**: the Codex in the Windows ChatGPT app ignores `commandWindows` and runs `command` through `cmd.exe`, so a macOS `command` there fails every tool call with `hook exited with code 1`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if exist C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1 powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\Coralogix\\codex-hooks\\codex-repo-tracker.ps1",
             "timeout": 30
           }
         ]
@@ -274,13 +295,13 @@ Verified on macOS with Codex CLI 0.149.1 and the ChatGPT desktop app 0.149.0-alp
 
 ### Windows
 
-[`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is the Windows twin of `codex-repo-tracker.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows and picks the Windows command of a registration (`commandWindows` in `hooks.json`, `command_windows` in TOML), which is why `user-hooks.example.json` and `managed-requirements.example.toml` carry one entry per platform; the same files serve a mixed fleet.
+[`hooks/codex-repo-tracker.ps1`](hooks/codex-repo-tracker.ps1) is the Windows twin of `codex-repo-tracker.sh`: same metrics, same labels, same counting and re-baselining rules, same state-file format. It needs only Windows PowerShell 5.1 (ships with every Windows 10/11) — no node, no python, nothing to sign. Codex runs hook commands through `cmd.exe` on Windows.
 
-- **Per-user:** install and register as in [Per-user install](#per-user-install-no-mdm); the file is `%USERPROFILE%\.codex\hooks.json` and the same interactive approval applies.
-- **Fleet:** deploy `codex-repo-tracker.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/managed-requirements.example.toml`](hooks/managed-requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves).
+- **Per-user:** install and register as in [Per-user install](#per-user-install-no-mdm), with [`hooks/user-hooks.windows.example.json`](hooks/user-hooks.windows.example.json); the file is `%USERPROFILE%\.codex\hooks.json` and the same interactive approval applies.
+- **Fleet:** deploy `codex-repo-tracker.ps1` to `C:\ProgramData\Coralogix\codex-hooks\codex-repo-tracker.ps1` with your device management (Intune, GPO), put the completed `[otel]` config at `%ProgramData%\OpenAI\Codex\config.toml`, and register the hook through Codex's system requirements layer at `%ProgramData%\OpenAI\Codex\requirements.toml`, built from [`hooks/managed-requirements.example.toml`](hooks/managed-requirements.example.toml) (`windows_managed_dir` + `command_windows` are the Windows halves). Whether the Windows ChatGPT app honours `command_windows` in the managed layer is not verified yet; it ignores the per-user `commandWindows`.
 - **Config:** the hook reads the user's `%USERPROFILE%\.codex\config.toml` first, then `%ProgramData%\OpenAI\Codex\config.toml`, then `CX_*` environment variables. The API key is passed to the HTTP call in process, never on a child process's argv.
 
-**Verification status:** `codex-repo-tracker.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex-repo-tracker.sh`'s contract. It has **not yet run on a real Windows host** (Windows PowerShell 5.1, `cmd.exe` registration, a live Codex): pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
+**Verification status:** `codex-repo-tracker.ps1` is parity-tested against a local capture server — 14 scenarios covering repo and branch resolution, userinfo stripping, commit/line counting with the author filter and no-recount rule, non-linear re-baselining, PR proof, sub-agent `agent_id`, the config-file chain, and `CX_*` fallbacks — under PowerShell 7 on macOS, where every payload matches `codex-repo-tracker.sh`'s contract. On a real Windows host, the installed script run through `cmd.exe` exits 0 and its metrics reach Coralogix. A live Codex run with the Windows `command` is still to be confirmed: pilot on one machine — restart Codex, approve the review prompt, confirm `codex_session_repo_info` arrives — before any fleet rollout.
 
 ### Test locally
 
