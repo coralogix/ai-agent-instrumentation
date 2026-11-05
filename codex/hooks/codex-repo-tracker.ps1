@@ -460,8 +460,11 @@ try {
         $metrics += ',{"name":"codex_session_lines_removed","gauge":{"dataPoints":[' + ($removedDps -join ',') + ']}}'
     }
 
+    # cx.integration.source.type is Codex's integration source type, the
+    # counterpart of the Claude Code hook's anthropic-claude-code.
     $payload = '{"resourceMetrics":[{"resource":{"attributes":[' +
-        '{"key":"service.name","value":{"stringValue":"codex-hook"}}]},' +
+        '{"key":"service.name","value":{"stringValue":"codex-hook"}},' +
+        '{"key":"cx.integration.source.type","value":{"stringValue":"openai-codex"}}]},' +
         '"scopeMetrics":[{"scope":{"name":"repo-tracker","version":"1.6.0"},' +
         '"metrics":[' + $metrics + ']}]}]}'
 

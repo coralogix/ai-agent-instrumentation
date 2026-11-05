@@ -446,6 +446,9 @@ done
 [ -n "$DPS" ] || { add_dp "unknown"; add_branch_dp "unknown" "unknown"; }
 
 RATTRS="{\"key\":\"service.name\",\"value\":{\"stringValue\":\"codex-hook\"}}"
+# Codex's integration source type, the counterpart of the Claude Code hook's
+# anthropic-claude-code.
+RATTRS="$RATTRS,{\"key\":\"cx.integration.source.type\",\"value\":{\"stringValue\":\"openai-codex\"}}"
 
 METRICS="{\"name\":\"codex_session_repo_info\",\"gauge\":{\"dataPoints\":[$DPS]}}"
 METRICS="$METRICS,{\"name\":\"codex_session_branch_info\",\"gauge\":{\"dataPoints\":[$BRANCH_DPS]}}"
