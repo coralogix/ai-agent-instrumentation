@@ -276,10 +276,10 @@ No credentials appear in the `command` — the endpoint, key, and resource attri
 
 **What the hook sends:** one OTLP/JSON span to `/v1/traces` for each of `SessionStart`, `UserPromptSubmit`, `CwdChanged`, `SessionEnd`, and `PostToolUse` of `Edit`, `MultiEdit`, `Write` and `NotebookEdit`. The hook ignores all other events and tools, so an older registration on every tool sends no extra spans.
 - **Span:** name `agent_hook.<event>`, kind internal, start and end at the event time.
-- **Attributes:** `agent_name` (`claude-code`), `hook_event`, `session_id`, `tool_name` (edits only), and, when the repository has an `origin`, `vcs_repository_url_full` (no user, password, query or fragment), `vcs_repository_name` (`owner/repo`) and `vcs_ref_head_name` (the branch; none on a detached HEAD). The repository is the one of the edited file for an edit, of the new directory for `CwdChanged`, and of the working directory for the other events.
+- **Attributes:** `agent_name` (`claude-code`), `hook_event`, `session_id`, `user_email` (the claude.ai login email cached in `~/.claude.json`, when present; it can remain after the user switches to an API key), `tool_name` (edits only), and, when the repository has an `origin`, `vcs_repository_url_full` (no user, password, query or fragment), `vcs_repository_name` (`owner/repo`) and `vcs_ref_head_name` (the branch; none on a detached HEAD). The repository is the one of the edited file for an edit, of the new directory for `CwdChanged`, and of the working directory for the other events.
 - **Resource:** `service.name=claude-code-hook`, `cx.source.integration.type=claude_code_agent`, and `cx.application.name` / `cx.subsystem.name` from `OTEL_RESOURCE_ATTRIBUTES` when set.
 - **Trace:** a span sent during a turn joins the turn's trace from `TRACEPARENT`, as a child of `claude_code.interaction`. This needs Claude Code tracing on: `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` and `OTEL_TRACES_EXPORTER=otlp`. `SessionStart`, `SessionEnd`, and every span of a session without tracing, share one trace per session: the first 32 hex characters of SHA-256(`session_id`).
-- **Never sent:** prompts, tool input or output, local paths, user email, credentials.
+- **Never sent:** prompts, tool input or output, local paths, credentials.
 
 The hook reads the event, stamps its time, and starts a background process that runs git and the POST. So the session never waits for the network, and the send completes after `SessionEnd` and after `claude -p` exits.
 

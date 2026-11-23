@@ -40,9 +40,10 @@ $Content = @'
 # Sends one OTLP/JSON span "agent_hook.<event>" to /v1/traces on SessionStart,
 # UserPromptSubmit, CwdChanged, SessionEnd, and PostToolUse of Edit, MultiEdit,
 # Write and NotebookEdit. Other events and tools are ignored. The span holds the
-# session id, the event name, the tool name of an edit, and the host URL,
-# owner/repo and branch of the repository's origin. It never holds prompts,
-# tool input or output, local paths or credentials.
+# session id, the event name, the tool name of an edit, the claude.ai login
+# email cached on the machine, and the host URL, owner/repo and branch of the
+# repository's origin. It never holds prompts, tool input or output, local
+# paths or credentials.
 #
 # The hook reads the event, stamps its time and starts a hidden PowerShell
 # sender (this script with -Send) that runs git and the POST, so the session
@@ -379,6 +380,12 @@ try {
         Add-SpanAttr 'agent_name' 'claude-code'
         Add-SpanAttr 'hook_event' ([string]$f.hook_event)
         Add-SpanAttr 'session_id' ([string]$f.session_id)
+        # The claude.ai login cached in ~/.claude.json, when present. It can outlive a switch to an API key.
+        try {
+            $configDir = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { $env:USERPROFILE }
+            $claudeJson = [IO.File]::ReadAllText((Join-Path $configDir '.claude.json')) | ConvertFrom-Json
+            Add-SpanAttr 'user_email' ([string]$claudeJson.oauthAccount.emailAddress)
+        } catch {}
         Add-SpanAttr 'tool_name' ([string]$f.tool_name)
         $dir = [string]$f.directory
         if ($dir) {

@@ -17,9 +17,10 @@
 # Sends one OTLP/JSON span "agent_hook.<event>" to /v1/traces on SessionStart,
 # UserPromptSubmit, CwdChanged, SessionEnd, and PostToolUse of Edit, MultiEdit,
 # Write and NotebookEdit. Other events and tools are ignored. The span holds the
-# session id, the event name, the tool name of an edit, and the host URL,
-# owner/repo and branch of the repository's origin. It never holds prompts,
-# tool input or output, local paths or credentials.
+# session id, the event name, the tool name of an edit, the claude.ai login
+# email cached on the machine, and the host URL, owner/repo and branch of the
+# repository's origin. It never holds prompts, tool input or output, local
+# paths or credentials.
 #
 # The hook reads the event, stamps its time and starts a background sender that
 # runs git and the POST, so the session never waits, and the send survives the
@@ -334,6 +335,8 @@ send_span() {
   add_attr agent_name "$AGENT_NAME"
   add_attr hook_event "$HOOK"
   add_attr session_id "$SID"
+  # The claude.ai login cached in ~/.claude.json, when present. It can outlive a switch to an API key.
+  add_attr user_email "$(plutil -extract oauthAccount.emailAddress raw -o - "${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json" 2>/dev/null)"
   add_attr tool_name "$TOOL"
   if [ -n "$DIR" ] && parse_remote "$(git_bounded -C "$DIR" remote get-url origin)"; then
     add_attr vcs_repository_url_full "$REPO_URL"
