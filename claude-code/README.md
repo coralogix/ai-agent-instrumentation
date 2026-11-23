@@ -203,6 +203,7 @@ The hook sends one span for each Claude Code session event. AI Center uses the s
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_METRIC_EXPORT_INTERVAL": "1000",
     "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>",
+    "OTEL_TRACES_EXPORTER": "otlp",
     "OTEL_TRACES_EXPORT_INTERVAL": "1000"
   },
   "hooks": {
@@ -277,7 +278,7 @@ No credentials appear in the `command` — the endpoint, key, and resource attri
 - **Span:** name `agent_hook.<event>`, kind internal, start and end at the event time.
 - **Attributes:** `agent_name` (`claude-code`), `hook_event`, `session_id`, `tool_name` (edits only), and, when the repository has an `origin`, `vcs_repository_url_full` (no user, password, query or fragment), `vcs_repository_name` (`owner/repo`) and `vcs_ref_head_name` (the branch; none on a detached HEAD). The repository is the one of the edited file for an edit, of the new directory for `CwdChanged`, and of the working directory for the other events.
 - **Resource:** `service.name=claude-code-hook`, `cx.source.integration.type=claude_code_agent`, and `cx.application.name` / `cx.subsystem.name` from `OTEL_RESOURCE_ATTRIBUTES` when set.
-- **Trace:** all spans of a session share one trace: the first 32 hex characters of SHA-256(`session_id`). When Claude Code tracing is on (`CLAUDE_CODE_ENHANCED_TELEMETRY_BETA`), a span sent during a turn joins the turn's trace from `TRACEPARENT`, as a child of `claude_code.interaction`.
+- **Trace:** a span sent during a turn joins the turn's trace from `TRACEPARENT`, as a child of `claude_code.interaction`. This needs Claude Code tracing on: `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` and `OTEL_TRACES_EXPORTER=otlp`. `SessionStart`, `SessionEnd`, and every span of a session without tracing, share one trace per session: the first 32 hex characters of SHA-256(`session_id`).
 - **Never sent:** prompts, tool input or output, local paths, user email, credentials.
 
 The hook reads the event, stamps its time, and starts a background process that runs git and the POST. So the session never waits for the network, and the send completes after `SessionEnd` and after `claude -p` exits.
@@ -305,7 +306,11 @@ The hook reads the event, stamps its time, and starts a background process that 
    - `/status` in Claude Code shows `Enterprise managed settings (plist)` under **Setting sources** (or the remote settings, when the admin console delivers settings too).
    - `/hooks` in Claude Code lists the run line of the example for `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `CwdChanged` and `SessionEnd`.
    - `ls -l /usr/local/bin/claude.sh` shows `-rwxr-xr-x root wheel`.
-   - Start a session in a git repository, send a prompt, and ask for one file edit. After about a minute, the `agent_hook.SessionStart`, `agent_hook.UserPromptSubmit` and `agent_hook.PostToolUse` spans of that session are in Coralogix.
+   - Start a session in a git repository, send a prompt, and ask for one file edit. After about a minute, the `agent_hook.SessionStart`, `agent_hook.UserPromptSubmit` and `agent_hook.PostToolUse` spans of that session are in the `ai.raw.anthropic.claude_code.spans` dataset (restricted by default: grant read access in its access policy):
+
+     ```
+     source ai.raw.anthropic.claude_code.spans | filter $l.operationName.startsWith('agent_hook')
+     ```
    - If no span arrives, `~/.claude/coralogix-hook-last-error.txt` holds the time and HTTP status of the last failed send.
 
 > For manual testing both hooks accept overrides: `--otlp-endpoint` / `--otlp-headers` / `--resource-attributes` / `--settings-file=<path>` (sh) and the equivalent `-OtlpEndpoint` / `-OtlpHeaders` / `-ResourceAttributes` / `-SettingsFile` (PowerShell). `hooks/test-hook-local.sh` spawns a hook exactly the way Claude Code does (sh + event on stdin).
