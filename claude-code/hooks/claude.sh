@@ -186,7 +186,10 @@ case "$TIME_NS" in ''|*[!0-9]*) TIME_NS="$(date +%s)000000000" ;; esac
 # Trace: a span inside a turn joins the turn's trace; the other spans of a
 # session share one trace (first 32 hex of SHA-256(session_id)).
 # ---------------------------------------------------------------------------
-tracing_on() {
+tracing_on() { # Claude Code traces only with the beta flag on and a traces exporter set
+  _exp="${OTEL_TRACES_EXPORTER:-}"
+  [ -n "$_exp" ] || _exp="$(get_cfg OTEL_TRACES_EXPORTER)"
+  case "$(trim "$_exp" | tr '[:upper:]' '[:lower:]')" in ""|none) return 1 ;; esac
   for _flag in CLAUDE_CODE_ENHANCED_TELEMETRY_BETA ENABLE_ENHANCED_TELEMETRY_BETA; do
     eval "_v=\${$_flag:-}"
     [ -n "$_v" ] || _v="$(get_cfg "$_flag")"

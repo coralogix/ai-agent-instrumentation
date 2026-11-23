@@ -297,6 +297,11 @@ try {
                 if (-not $v) { $v = $merged[$flag] }
                 if (@('1', 'true', 'yes', 'on') -contains ([string]$v).Trim().ToLowerInvariant()) { $tracing = $true }
             }
+            # Claude Code traces only with a traces exporter set, too.
+            $exporter = [Environment]::GetEnvironmentVariable('OTEL_TRACES_EXPORTER')
+            if (-not $exporter) { $exporter = $merged['OTEL_TRACES_EXPORTER'] }
+            $exporter = ([string]$exporter).Trim().ToLowerInvariant()
+            if (-not $exporter -or $exporter -eq 'none') { $tracing = $false }
             $tm = [regex]::Match([string]$env:TRACEPARENT, '^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\z')
             if ($tracing -and $tm.Success) {
                 $turnTrace = $tm.Groups[1].Value; $turnSpan = $tm.Groups[2].Value
