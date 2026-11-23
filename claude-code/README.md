@@ -202,7 +202,7 @@ The hook sends one span for each Claude Code session event. AI Center uses the s
     "OTEL_LOGS_EXPORT_INTERVAL": "1000",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_METRIC_EXPORT_INTERVAL": "1000",
-    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>,cx.integration.source.version=1.0.0,cx.integration.source.type=claude_code_agent",
     "OTEL_TRACES_EXPORTER": "otlp",
     "OTEL_TRACES_EXPORT_INTERVAL": "1000"
   },
