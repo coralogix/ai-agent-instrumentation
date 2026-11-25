@@ -102,11 +102,10 @@ if CX_OTLP_ENDPOINT:
 
 _SERVICE_VERSION = "2.1.0"
 
-# Coralogix integration-source identity. The traces gateway routes spans to
-# the Cursor dataset (ai.raw.anysphere.cursor.spans) by reading the marker from
-# the OTLP *resource* attributes: `cx.source.integration.type` (canonical) or
-# `cx.integration.source.type` (legacy). Both go on the resource; the legacy
-# key also stays on every span so existing span-level queries keep working.
+# Coralogix integration-source identity, set on the OTLP resource only (as the
+# Claude Code integration does). The traces gateway reads
+# `cx.source.integration.type` from the resource to route the spans to the
+# Cursor dataset (ai.raw.anysphere.cursor.spans).
 _INTEGRATION_SOURCE_TYPE    = "anysphere-cursor"
 _INTEGRATION_SOURCE_VERSION = "1.1.0"
 
@@ -263,8 +262,6 @@ def build_attributes(event, state):
     name = event.get("hook_event_name", "")
 
     # Core identity
-    add("cx.integration.source.type",    _INTEGRATION_SOURCE_TYPE)
-    add("cx.integration.source.version", _INTEGRATION_SOURCE_VERSION)
     add("cursor.conversation_id", conversation_id(event))
     add("cursor.generation_id",   event.get("generation_id"))
     add("cursor.user_email",      event.get("user_email"))
@@ -499,7 +496,6 @@ def _emit_span_inner(event, hook_name, state):
         "service.version":    _SERVICE_VERSION,
         "telemetry.sdk.name": "cursor-coralogix-hook",
         "cx.source.integration.type":    _INTEGRATION_SOURCE_TYPE,
-        "cx.integration.source.type":    _INTEGRATION_SOURCE_TYPE,
         "cx.integration.source.version": _INTEGRATION_SOURCE_VERSION,
     })
 

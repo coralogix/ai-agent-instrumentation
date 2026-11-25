@@ -237,9 +237,9 @@ Each Cursor hook event becomes one OTLP trace span, named `cursor.<event>` (for 
 | `afterAgentResponse` | `cursor.afterAgentResponse` | `cursor.text` (masked by default), `cursor.duration_ms` |
 | `afterAgentThought` | `cursor.afterAgentThought` | `cursor.text` (masked by default) |
 
-The OTLP resource carries the Coralogix dataset marker `cx.source.integration.type` = `anysphere-cursor` (plus the legacy key `cx.integration.source.type` with the same value, and `cx.integration.source.version`); Coralogix uses it to route the spans to the Cursor dataset. Hooks older than 1.1.0 sent `cursor_agent`, on the spans only.
+The OTLP resource carries `cx.source.integration.type` (`anysphere-cursor`) and `cx.integration.source.version`, the same way the Claude Code integration marks its telemetry; Coralogix uses them to route the spans to the Cursor dataset. Hooks older than 1.1.0 instead sent `cx.integration.source.type` (`cursor_agent`) on each span.
 
-All spans carry `cx.integration.source.type` (`anysphere-cursor`) and `cx.integration.source.version`, plus, when available: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `cursor.user_email`. Every export also carries the `CX-Application-Name` and `CX-Subsystem-Name` values as request headers, which Coralogix uses to tag the ingested data with your application and subsystem names.
+All spans carry, when available: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `cursor.user_email`. Every export also carries the `CX-Application-Name` and `CX-Subsystem-Name` values as request headers, which Coralogix uses to tag the ingested data with your application and subsystem names.
 
 ---
 
