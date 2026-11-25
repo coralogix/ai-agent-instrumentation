@@ -179,9 +179,9 @@ Alternatively, use Claude Code's own [settings file](https://docs.anthropic.com/
 
 ---
 
-## Repo-tracker hook (macOS & Windows)
+## Session-spans hook (macOS & Windows)
 
-Paste this into the admin console's **Managed settings** dialog (or deliver it as an MDM `managed-settings.json`). The same JSON is available as a ready-to-edit file at [`hooks/managed-settings.example.json`](hooks/managed-settings.example.json) — replace the `<YOUR_…>` placeholders with your values.
+The hook sends one span for each Claude Code session event. AI Center uses the spans to link each session to the git branches it works on. Paste this into the admin console's **Managed settings** dialog, or deliver it with MDM (see [Deploy with Jamf](#deploy-with-jamf-macos)). The same JSON is available as a ready-to-edit file at [`hooks/managed-settings.example.json`](hooks/managed-settings.example.json) — replace the `<YOUR_…>` placeholders with your values.
 
 ```json
 {
@@ -202,11 +202,57 @@ Paste this into the admin console's **Managed settings** dialog (or deliver it a
     "OTEL_LOGS_EXPORT_INTERVAL": "1000",
     "OTEL_METRICS_EXPORTER": "otlp",
     "OTEL_METRIC_EXPORT_INTERVAL": "1000",
-    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>",
+    "OTEL_RESOURCE_ATTRIBUTES": "cx.application.name=claude-code,cx.subsystem.name=<YOUR_SUBSYSTEM_NAME>,cx.integration.source.version=1.0.0,cx.integration.source.type=claude_code_agent",
+    "OTEL_TRACES_EXPORTER": "otlp",
     "OTEL_TRACES_EXPORT_INTERVAL": "1000"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "case \"$(uname -s)\" in Darwin) [ -x /usr/local/bin/claude.sh ] && exec /bin/sh /usr/local/bin/claude.sh; exit 0;; MINGW*|MSYS*|CYGWIN*) [ -f \"C:/ProgramData/Coralogix/claude-code/claude.ps1\" ] && exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:/ProgramData/Coralogix/claude-code/claude.ps1; exit 0;; *) exit 0;; esac",
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
       {
         "hooks": [
           {
@@ -225,14 +271,47 @@ No credentials appear in the `command` — the endpoint, key, and resource attri
 **Zero fleet assumptions.** The hook is designed for heterogeneous enterprise fleets — it assumes nothing about what's installed and requires no binaries (nothing to sign, notarize, or keep per-arch builds of):
 - **macOS** (`hooks/claude.sh`): uses only tools that ship with macOS itself — `/bin/sh`, `plutil` (JSON parsing), `curl` (HTTPS). Works under GUI-launched Claude Code with a bare-bones `PATH`.
 - **Windows** (`hooks/claude.ps1`): requires only Windows PowerShell 5.1, which ships with every Windows 10/11.
-- `git` is optional on both, and resolved by absolute path rather than through `PATH` — the hook checks `/opt/homebrew`, `/usr/local`, the developer-tools locations, then anything on `PATH` that is not the `/usr/bin/git` stub (execing that stub is what pops Apple's install dialog on machines without the tools). So a Homebrew git still works under the bare-bones `PATH`; only a machine with no git at all degrades `repository_name` to `unknown`.
-- Metrics are sent as **OTLP/JSON** (`Content-Type: application/json`) to the same `/v1/metrics` ingress endpoint — semantically identical to the protobuf encoding, but buildable with OS-native tools.
+- `git` is optional on both, and resolved by absolute path rather than through `PATH` — the hook checks `/opt/homebrew`, `/usr/local`, the developer-tools locations, then anything on `PATH` that is not the `/usr/bin/git` stub (execing that stub is what pops Apple's install dialog on machines without the tools). So a Homebrew git still works under the bare-bones `PATH`; on a machine with no git, the span has no `vcs_*` attributes.
+- Data is sent as **OTLP/JSON** (`Content-Type: application/json`) to the same ingress endpoint — semantically identical to the protobuf encoding, but buildable with OS-native tools.
+
+**What the hook sends:** one OTLP/JSON span to `/v1/traces` for each of `SessionStart`, `UserPromptSubmit`, `CwdChanged`, `SessionEnd`, and `PostToolUse` of `Edit`, `MultiEdit`, `Write` and `NotebookEdit`. The hook ignores all other events and tools, so an older registration on every tool sends no extra spans.
+- **Span:** name `agent_hook.<event>`, kind internal, start and end at the event time.
+- **Attributes:** `agent_name` (`claude-code`), `hook_event`, `session_id`, `user_email` (the claude.ai login email cached in `~/.claude.json`, when present; it can remain after the user switches to an API key), `tool_name` (edits only), and, when the repository has an `origin`, `vcs_repository_url_full` (no user, password, query or fragment), `vcs_repository_name` (`owner/repo`) and `vcs_ref_head_name` (the branch; none on a detached HEAD). The repository is the one of the edited file for an edit, of the new directory for `CwdChanged`, and of the working directory for the other events.
+- **Resource:** `service.name=claude-code-hook`, `cx.source.integration.type=claude_code_agent`, and `cx.application.name` / `cx.subsystem.name` from `OTEL_RESOURCE_ATTRIBUTES` when set.
+- **Trace:** a span sent during a turn joins the turn's trace from `TRACEPARENT`, as a child of `claude_code.interaction`. This needs Claude Code tracing on: `CLAUDE_CODE_ENHANCED_TELEMETRY_BETA=1` and `OTEL_TRACES_EXPORTER=otlp`. `SessionStart`, `SessionEnd`, and every span of a session without tracing, share one trace per session: the first 32 hex characters of SHA-256(`session_id`).
+- **Never sent:** prompts, tool input or output, local paths, credentials.
+
+The hook reads the event, stamps its time, and starts a background process that runs git and the POST. So the session never waits for the network, and the send completes after `SessionEnd` and after `claude -p` exits.
 
 **How the OS disambiguation works:** Claude Code executes hook commands through `sh` on macOS and **Git Bash** on Windows, so a single `case "$(uname -s)"` branches both — `Darwin` runs the sh hook, `MINGW*/MSYS*` runs PowerShell with the ps1 hook, anything else is a silent no-op. Each branch guards on the hook file existing (`[ -x … ]` / `[ -f … ]`) and otherwise exits 0, so during rollout — when the managed settings can reach a machine before the MDM policy has staged the hook file — the command is a clean no-op instead of a per-tool-use error. Deploy targets:
 - **macOS:** `/usr/local/bin/claude.sh`, via `hooks/deploy-jamf.sh` (a Jamf Policy script)
 - **Windows:** `C:\ProgramData\Coralogix\claude-code\claude.ps1`, via `hooks/deploy-windows.ps1` (run as Administrator / pushed via Intune as SYSTEM). Forward slashes in the `command` avoid backslash-escaping inside JSON; this is where *our hook* lives — distinct from Claude Code's own `C:\Program Files\ClaudeCode\managed-settings.json`, which the hook *reads* for config.
 
-**How the hook gets its config (single source of truth):** Claude Code does not reliably propagate the settings `env` block to hook subprocesses — `OTEL_*` are stripped, and on Windows the whole block is dropped ([claude-code#20112](https://github.com/anthropics/claude-code/issues/20112)) — so the hook cannot read its environment. Instead, both hooks read the same Claude Code settings files that already hold the telemetry config and pull the three values (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_RESOURCE_ATTRIBUTES`) straight from their `env` block. They check, in precedence order: the endpoint-managed file (macOS `/Library/Application Support/ClaudeCode/managed-settings.json`, Windows `C:\Program Files\ClaudeCode\managed-settings.json`), the server-managed cache (`~/.claude/remote-settings.json`, written when settings come from the admin console as shown here), then `~/.claude/settings.json`. So configuring the `env` block once — via this dialog or an MDM file — serves both Claude Code's native telemetry and this hook, with no duplicated secrets.
+**How the hook gets its config (single source of truth):** Claude Code does not reliably propagate the settings `env` block to hook subprocesses — `OTEL_*` are stripped, and on Windows the whole block is dropped ([claude-code#20112](https://github.com/anthropics/claude-code/issues/20112)) — so the hook cannot read its environment. Instead, both hooks read the same Claude Code managed settings that already hold the telemetry config and pull the three values (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_RESOURCE_ATTRIBUTES`) straight from their `env` block. For each value they use the first source that sets it, in the [order Claude Code uses](https://code.claude.com/docs/en/managed-settings#how-claude-code-combines-managed-sources): the server-managed cache (`~/.claude/remote-settings.json`, written when settings come from the admin console), the MDM policy (macOS configuration profile `com.anthropic.claudecode` under `/Library/Managed Preferences/`, Windows `HKLM\SOFTWARE\Policies\ClaudeCode\Settings`), the endpoint-managed file (macOS `/Library/Application Support/ClaudeCode/managed-settings.json`, Windows `C:\Program Files\ClaudeCode\managed-settings.json`), then `~/.claude/settings.json`. So the hook sends to the same endpoint, with the same key, as Claude Code's native telemetry, and you configure the `env` block only once.
+
+### Deploy with Jamf (macOS)
+
+1. **Policy:** add [`hooks/deploy-jamf.sh`](hooks/deploy-jamf.sh) as a Jamf script and run it in a policy. It writes the hook to `/usr/local/bin/claude.sh` (root-owned, mode 755). Its embedded copy is byte-for-byte identical to `hooks/claude.sh`.
+2. **Configuration profile:** fill in the `<YOUR_…>` values in a copy of [`hooks/managed-settings.example.json`](hooks/managed-settings.example.json), then convert it to a plist:
+
+   ```bash
+   plutil -convert xml1 -o com.anthropic.claudecode.plist managed-settings.json
+   ```
+
+   In Jamf Pro, create a configuration profile with an **Application & Custom Settings → Upload** payload, preference domain `com.anthropic.claudecode`, and upload the plist. The plist holds your send-data key: keep it out of git.
+
+   If the Mac also gets server-managed settings from the claude.ai admin console, Claude Code takes `hooks` from the admin console only and ignores the hooks in the profile; only `env` merges across the sources. In that case, replace the `hooks` block in the admin console with the `hooks` block of the example, so the run line there is the same as here.
+3. **Scope** the policy and the profile to the same test Mac. The order does not matter: until the hook file exists, the hook command exits 0 and does nothing.
+4. **Check on the Mac:**
+   - `/status` in Claude Code shows `Enterprise managed settings (plist)` under **Setting sources** (or the remote settings, when the admin console delivers settings too).
+   - `/hooks` in Claude Code lists the run line of the example for `SessionStart`, `UserPromptSubmit`, `PostToolUse`, `CwdChanged` and `SessionEnd`.
+   - `ls -l /usr/local/bin/claude.sh` shows `-rwxr-xr-x root wheel`.
+   - Start a session in a git repository, send a prompt, and ask for one file edit. After about a minute, the `agent_hook.SessionStart`, `agent_hook.UserPromptSubmit` and `agent_hook.PostToolUse` spans of that session are in the `ai.raw.anthropic.claude_code.spans` dataset (restricted by default: grant read access in its access policy):
+
+     ```
+     source ai.raw.anthropic.claude_code.spans | filter $l.operationName.startsWith('agent_hook')
+     ```
+   - If no span arrives, `~/.claude/coralogix-hook-last-error.txt` holds the time and HTTP status of the last failed send.
 
 > For manual testing both hooks accept overrides: `--otlp-endpoint` / `--otlp-headers` / `--resource-attributes` / `--settings-file=<path>` (sh) and the equivalent `-OtlpEndpoint` / `-OtlpHeaders` / `-ResourceAttributes` / `-SettingsFile` (PowerShell). `hooks/test-hook-local.sh` spawns a hook exactly the way Claude Code does (sh + event on stdin).
 

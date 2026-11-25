@@ -1,9 +1,9 @@
 # ==============================================================================
-# Windows Deployment Script: Deploy the Claude Code repo-tracker hook
+# Windows Deployment Script: Deploy the Claude Code session-spans hook
 # Target Path: C:\ProgramData\Coralogix\claude-code\claude.ps1
 #
 # Run as Administrator (or via your MDM, e.g. Intune, as SYSTEM). Writes the
-# PostToolUse hook to a stable machine-wide path so it can be referenced from
+# session-spans hook to a stable machine-wide path so it can be referenced from
 # Claude Code's managed/remote settings. The script below is kept byte-for-byte
 # in sync with claude-code/hooks/claude.ps1.
 #
@@ -34,36 +34,51 @@ $Content = @'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Claude Code PostToolUse hook that tracks repository names per session (Windows).
+# Claude Code hook (Windows): one span per session event, so AI Center can link
+# each session to the git branches it works on.
 #
-# Emits an OTLP/JSON gauge metric claude_code_session_repo_info with labels
-# {session_id, repository_name, branch_name, user_email} on each tool use.
+# Sends one OTLP/JSON span "agent_hook.<event>" to /v1/traces on SessionStart,
+# UserPromptSubmit, CwdChanged, SessionEnd, and PostToolUse of Edit, MultiEdit,
+# Write and NotebookEdit. Other events and tools are ignored. The span holds the
+# session id, the event name, the tool name of an edit, the claude.ai login
+# email cached on the machine, and the host URL, owner/repo and branch of the
+# repository's origin. It never holds prompts, tool input or output, local
+# paths or credentials.
 #
-# ZERO runtime assumptions: requires only Windows PowerShell 5.1, which ships
-# with every Windows 10/11. No node, no python, no binaries to sign. git is
-# optional: repo detection degrades to "unknown" without it, and every git call
-# is bounded to 5s so a stale mount can never hang the session.
+# The hook reads the event, stamps its time and starts a hidden PowerShell
+# sender (this script with -Send) that runs git and the POST, so the session
+# never waits, and the send survives the SessionEnd budget and the end of
+# `claude -p`.
 #
-# Config is read from the same Claude Code settings files that hold the
-# telemetry env block (Claude Code does not reliably pass its `env` block to
-# hook subprocesses - see claude-code#20112):
+# Requires only Windows PowerShell 5.1, which ships with Windows 10/11.
+# git is optional: without it the span has no vcs_* attributes.
+#
+# Config is read in Claude Code's managed-source order (the server-managed
+# cache, the policy registry value HKLM\SOFTWARE\Policies\ClaudeCode\Settings,
+# managed-settings.json), then the user settings, because Claude Code does not
+# reliably pass its `env` block to hooks (claude-code#20112):
 #   OTEL_EXPORTER_OTLP_ENDPOINT   (bare URL)
 #   OTEL_EXPORTER_OTLP_HEADERS    ("Authorization=Bearer <KEY>")
 #   OTEL_RESOURCE_ATTRIBUTES      ("cx.application.name=x,cx.subsystem.name=y")
 # Legacy CX_HOOK_* keys (CX_HOOK_OTLP_ENDPOINT / CX_HOOK_API_KEY /
-# CX_HOOK_APPLICATION_NAME / CX_HOOK_SUBSYSTEM_NAME) are read as fallbacks so
-# fleets mid-migration keep reporting.
+# CX_HOOK_APPLICATION_NAME / CX_HOOK_SUBSYSTEM_NAME) are read as fallbacks.
 # Optional flags (manual testing): -SettingsFile, -OtlpEndpoint, -OtlpHeaders,
 # -ResourceAttributes.
+# A failed send writes its time and HTTP status (never the key) to
+# %USERPROFILE%\.claude\coralogix-hook-last-error.txt.
 
 param(
     [string]$SettingsFile = '',
     [string]$OtlpEndpoint = '',
     [string]$OtlpHeaders = '',
-    [string]$ResourceAttributes = ''
+    [string]$ResourceAttributes = '',
+    [switch]$Send
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
+
+$FieldsVariable = 'CX_HOOK_SPAN_FIELDS'
+$PolicyKey = 'SOFTWARE\Policies\ClaudeCode'
 
 try {
     # PS 5.1 may default to TLS 1.0; Coralogix ingress requires TLS 1.2+.
@@ -74,70 +89,156 @@ try {
 # JSON-escape a scalar via ConvertTo-Json (returns the value WITH surrounding
 # quotes, all control/special chars correctly escaped). The payload structure
 # itself is hand-built as a string so single-element arrays are never unwrapped
-# to objects — a PS 5.1 ConvertTo-Json quirk that would corrupt the OTLP shape.
+# to objects, a PS 5.1 ConvertTo-Json quirk that would corrupt the OTLP shape.
 function ConvertTo-JsonString([string]$s) {
     if ($null -eq $s) { $s = '' }
     return ($s | ConvertTo-Json -Compress)
 }
 
-function Read-EnvBlock([string]$Path) {
+# Quote one argument for a Windows command line (CommandLineToArgvW rules), so
+# a path ending in a backslash or holding a quote reaches the child intact.
+function ConvertTo-ProcessArgument([string]$s) {
+    if ($null -eq $s) { $s = '' }
+    return '"' + (($s -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+}
+
+function ConvertFrom-EnvBlock([string]$Text) {
     try {
-        if (-not (Test-Path -LiteralPath $Path)) { return $null }
-        $t = [IO.File]::ReadAllText($Path)
-        if ($t.Length -gt 0 -and $t[0] -eq [char]0xFEFF) { $t = $t.Substring(1) }
-        $j = $t | ConvertFrom-Json
+        if (-not $Text) { return $null }
+        if ($Text[0] -eq [char]0xFEFF) { $Text = $Text.Substring(1) }
+        $j = $Text | ConvertFrom-Json
         if ($j -and $j.env) { return $j.env }
     } catch {}
     return $null
 }
 
-# Run git with a 5s bound so a hung fs/mount degrades instead of stalling the
-# session. $GitArgs are fixed literal tokens (no spaces); only $Dir is dynamic
-# and it is quoted ('"' is illegal in Windows paths, so quoting is safe).
+function Read-EnvBlock([string]$Path) {
+    try {
+        if (-not (Test-Path -LiteralPath $Path)) { return $null }
+        return (ConvertFrom-EnvBlock ([IO.File]::ReadAllText($Path)))
+    } catch {}
+    return $null
+}
+
+# The Windows MDM policy: registry value Settings, the managed-settings.json
+# text. The 64-bit view, which Claude Code reads, even from a 32-bit PowerShell.
+function Read-PolicyEnvBlock {
+    try {
+        $hklm = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
+        $key = $hklm.OpenSubKey($PolicyKey)
+        if ($key) {
+            $t = $key.GetValue('Settings')
+            $key.Close()
+            if ($t -is [string]) { return (ConvertFrom-EnvBlock $t) }
+        }
+    } catch {}
+    return $null
+}
+
+# Every env key from the first settings source that defines it, in Claude Code's
+# managed-source order, so a defined empty value turns the key off as it does
+# for Claude Code.
+function Get-MergedEnv {
+    $blocks = New-Object System.Collections.ArrayList
+    if ($SettingsFile) { [void]$blocks.Add((Read-EnvBlock $SettingsFile)) }
+    $userHome = $env:USERPROFILE
+    if ($userHome) { [void]$blocks.Add((Read-EnvBlock (Join-Path $userHome '.claude\remote-settings.json'))) }
+    [void]$blocks.Add((Read-PolicyEnvBlock))
+    [void]$blocks.Add((Read-EnvBlock 'C:\Program Files\ClaudeCode\managed-settings.json'))
+    if ($userHome) { [void]$blocks.Add((Read-EnvBlock (Join-Path $userHome '.claude\settings.json'))) }
+    $merged = @{}
+    foreach ($e in $blocks) {
+        if (-not $e) { continue }
+        foreach ($p in $e.PSObject.Properties) {
+            if (-not $merged.ContainsKey($p.Name)) { $merged[$p.Name] = [string]$p.Value }
+        }
+    }
+    return $merged
+}
+
+# Run git with a 5s bound so a hung fs/mount degrades instead of stalling. No
+# GIT_* variable reaches git: an inherited GIT_DIR would point `git -C` at
+# another repository. Returns trimmed stdout on exit code 0, else ''.
 function Invoke-GitBounded([string]$Dir, [string[]]$GitArgs) {
     try {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = 'git'
-        $psi.Arguments = "-C `"$Dir`" " + ($GitArgs -join ' ')
+        $psi.Arguments = '-C ' + (ConvertTo-ProcessArgument $Dir) + ' ' + ($GitArgs -join ' ')
+        $psi.RedirectStandardInput = $true
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
+        $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding $false
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
+        foreach ($k in @($psi.EnvironmentVariables.Keys)) {
+            if ($k -like 'GIT_*') { $psi.EnvironmentVariables.Remove($k) }
+        }
         $p = [System.Diagnostics.Process]::Start($psi)
+        $p.StandardInput.Close()
         $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
         if ($p.WaitForExit(5000)) {
             if ($p.ExitCode -eq 0) { return ([string]$outTask.Result).Trim() }
         } else {
             try { $p.Kill() } catch {}
         }
     } catch {}
-    return $null
+    return ''
+}
+
+# owner/repo, as GitHub events name it, so hook and PR rows join.
+function Get-RepositoryName([string]$Path) {
+    $p = $Path.Trim('/')
+    if ($p.EndsWith('.git', [StringComparison]::Ordinal)) { $p = $p.Substring(0, $p.Length - 4) }
+    $parts = $p.Split([char]'/')
+    if ($parts.Count -ge 2) { return ($parts[$parts.Count - 2] + '/' + $parts[$parts.Count - 1]) }
+    return $p
+}
+
+# Origin URL without user info, query or fragment, and owner/repo. $null for an
+# origin on this machine: /path, C:\path, file://, or a remote helper address
+# such as hg::/path.
+function Get-Remote([string]$Url) {
+    if (-not $Url) { return $null }
+    if ($Url.Contains('://')) {
+        $scheme = ''; $rest = $Url
+        $m = [regex]::Match($Url, '^([A-Za-z][A-Za-z0-9+.-]*):')
+        if ($m.Success) { $scheme = $m.Groups[1].Value.ToLowerInvariant(); $rest = $Url.Substring($m.Length) }
+        $netloc = ''
+        if ($rest.StartsWith('//')) {
+            $rest = $rest.Substring(2)
+            $i = $rest.IndexOfAny([char[]]'/?#')
+            if ($i -lt 0) { $netloc = $rest; $rest = '' }
+            else { $netloc = $rest.Substring(0, $i); $rest = $rest.Substring($i) }
+        }
+        if ($netloc.Contains('[') -ne $netloc.Contains(']')) { return $null }
+        $path = ($rest -split '[?#]', 2)[0]
+        $hostPart = $netloc.Substring($netloc.LastIndexOf('@') + 1)
+        if ($scheme -eq 'file' -or -not $hostPart) { return $null }
+        return @(($scheme + '://' + $hostPart + $path), (Get-RepositoryName $path))
+    }
+    $colon = $Url.IndexOf(':')
+    if ($colon -lt 0) { return $null }
+    $prefix = $Url.Substring(0, $colon)
+    $path = $Url.Substring($colon + 1)
+    $hostPart = $prefix.Substring($prefix.LastIndexOf('@') + 1)
+    if ($path.StartsWith(':') -or $prefix.Contains('/') -or $prefix.Contains('\') -or $hostPart.Length -lt 2) { return $null }
+    return @(('ssh://' + $hostPart + '/' + $path.TrimStart('/')), (Get-RepositoryName $path))
+}
+
+function Write-LastError([string]$Message) {
+    try {
+        if (-not $env:USERPROFILE) { return }
+        $dir = Join-Path $env:USERPROFILE '.claude'
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return }
+        $line = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture) + ' ' + $Message + "`n"
+        [IO.File]::WriteAllText((Join-Path $dir 'coralogix-hook-last-error.txt'), $line, (New-Object System.Text.UTF8Encoding $false))
+    } catch {}
 }
 
 try {
     # --- Config resolution (same precedence as the macOS hook) ---------------
-    $candidates = @()
-    if ($SettingsFile) { $candidates += $SettingsFile }
-    $candidates += 'C:\Program Files\ClaudeCode\managed-settings.json'
-    $userHome = $env:USERPROFILE
-    if ($userHome) {
-        $candidates += (Join-Path $userHome '.claude\remote-settings.json')
-        $candidates += (Join-Path $userHome '.claude\settings.json')
-    }
-
-    # Merge env blocks; higher-precedence (earlier) files win. Skip empty values
-    # so a blank placeholder in a higher file does not block fallback to a lower
-    # file that has the real value.
-    $merged = @{}
-    foreach ($f in $candidates) {
-        $e = Read-EnvBlock $f
-        if ($e) {
-            foreach ($p in $e.PSObject.Properties) {
-                $val = [string]$p.Value
-                if ($val -ne '' -and -not $merged.ContainsKey($p.Name)) { $merged[$p.Name] = $val }
-            }
-        }
-    }
+    $merged = Get-MergedEnv
 
     $endpoint = if ($OtlpEndpoint) { $OtlpEndpoint } else { $merged['OTEL_EXPORTER_OTLP_ENDPOINT'] }
     $headers  = if ($OtlpHeaders)  { $OtlpHeaders }  else { $merged['OTEL_EXPORTER_OTLP_HEADERS'] }
@@ -172,113 +273,184 @@ try {
     if (-not $app) { $app = [string]$merged['CX_HOOK_APPLICATION_NAME'] }
     if (-not $sub) { $sub = [string]$merged['CX_HOOK_SUBSYSTEM_NAME'] }
 
+    # Off until an endpoint and a key are configured.
     if (-not $endpoint -or -not $auth) { exit 0 }
 
-    # --- Event (PostToolUse JSON on stdin) ------------------------------------
-    $raw = [Console]::In.ReadToEnd()
-    if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
-    $ev = $raw | ConvertFrom-Json
-    if (-not $ev -or -not $ev.session_id) { exit 0 }
-    $sid = [string]$ev.session_id
-    $cwd = [string]$ev.cwd
-    $tool = [string]$ev.tool_name
-    $fp = ''
-    if (@('Read','Edit','Write','NotebookEdit') -contains $tool) {
-        if ($ev.tool_input -and $ev.tool_input.file_path) { $fp = [string]$ev.tool_input.file_path }
-    } elseif (@('Glob','Grep') -contains $tool) {
-        if ($ev.tool_input -and $ev.tool_input.path) { $fp = [string]$ev.tool_input.path }
-    }
-    $email = ''
-    if ($ev.user_email) { $email = [string]$ev.user_email }
-    if (-not $cwd -and -not $fp) { exit 0 }
+    if (-not $Send) {
+        # --- Event (hook JSON on stdin): only what the span needs leaves -------
+        $stdin = [Console]::OpenStandardInput()
+        $buffer = New-Object System.IO.MemoryStream
+        $stdin.CopyTo($buffer)
+        $raw = [Text.Encoding]::UTF8.GetString($buffer.ToArray())
+        if ($raw.Length -gt 0 -and $raw[0] -eq [char]0xFEFF) { $raw = $raw.Substring(1) }
+        $ev = $raw | ConvertFrom-Json
+        if (-not $ev) { exit 0 }
+        $sid = [string]$ev.session_id
+        $evName = [string]$ev.hook_event_name
+        if (-not $sid -or -not $evName) { exit 0 }
 
-    # --- Repo detection (git optional) ----------------------------------------
-    $gitOk = $false
-    try { if (Get-Command git -ErrorAction SilentlyContinue) { $gitOk = $true } } catch {}
+        $tool = ''; $file = ''
+        if (@('SessionStart', 'UserPromptSubmit', 'CwdChanged', 'SessionEnd') -ccontains $evName) {
+        } elseif ($evName -ceq 'PostToolUse') {
+            # The edit goes to the branch of the edited file, which can differ from the cwd's.
+            $tool = [string]$ev.tool_name
+            if (@('Edit', 'MultiEdit', 'Write') -ccontains $tool) {
+                if ($ev.tool_input) { $file = [string]$ev.tool_input.file_path }
+            } elseif ($tool -ceq 'NotebookEdit') {
+                if ($ev.tool_input) { $file = [string]$ev.tool_input.notebook_path }
+            } else { exit 0 }
+        } else { exit 0 }
 
-    function Get-RepoRoot([string]$Dir) {
-        if (-not $gitOk) { return $null }
-        $out = Invoke-GitBounded $Dir @('rev-parse', '--show-toplevel')
-        if ($out) { return $out }
-        return $null
-    }
+        # The event time: the sender can spend seconds in git. ns since epoch
+        # from ticks (100ns units); [long] holds it until year 2262.
+        $timeNs = ([DateTime]::UtcNow.Ticks - 621355968000000000) * 100
 
-    function Get-RepoName([string]$Root) {
-        $url = Invoke-GitBounded $Root @('remote', 'get-url', 'origin')
-        if ($url) {
-            $u = ([string]$url).Trim().TrimEnd('/')
-            if ($u.EndsWith('.git')) { $u = $u.Substring(0, $u.Length - 4) }
-            # @(...) forces an array so a single segment is not unwrapped to a
-            # scalar string (whose [-1] would index the last character).
-            $parts = @(($u -replace ':', '/') -split '/' | Where-Object { $_ -ne '' })
-            if ($parts.Count -ge 2) { return ($parts[-2] + '/' + $parts[-1]) }
-            if ($parts.Count -eq 1) { return $parts[0] }
+        $dir = ''
+        if ($file) { try { $dir = [string][IO.Path]::GetDirectoryName($file) } catch {} }
+        if (-not $dir) { $dir = [string]$ev.new_cwd }
+        if (-not $dir) { $dir = [string]$ev.cwd }
+
+        # A span inside a turn joins the turn's trace; the other spans of a
+        # session share one trace. Claude Code sets TRACEPARENT to the turn's
+        # span only during a turn with its tracing on; otherwise it is inherited
+        # from the shell and names another trace.
+        $traceId = ''; $parentId = ''
+        if (@('SessionStart', 'SessionEnd') -cnotcontains $evName) {
+            $tracing = $false
+            foreach ($flag in @('CLAUDE_CODE_ENHANCED_TELEMETRY_BETA', 'ENABLE_ENHANCED_TELEMETRY_BETA')) {
+                $v = [Environment]::GetEnvironmentVariable($flag)
+                if (-not $v) { $v = $merged[$flag] }
+                if (@('1', 'true', 'yes', 'on') -contains ([string]$v).Trim().ToLowerInvariant()) { $tracing = $true }
+            }
+            # Claude Code traces only with a traces exporter set, too.
+            $exporter = [Environment]::GetEnvironmentVariable('OTEL_TRACES_EXPORTER')
+            if (-not $exporter) { $exporter = $merged['OTEL_TRACES_EXPORTER'] }
+            $exporter = ([string]$exporter).Trim().ToLowerInvariant()
+            if (-not $exporter -or $exporter -eq 'none') { $tracing = $false }
+            $tm = [regex]::Match([string]$env:TRACEPARENT, '^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}\z')
+            if ($tracing -and $tm.Success) {
+                $turnTrace = $tm.Groups[1].Value; $turnSpan = $tm.Groups[2].Value
+                if ($turnTrace.Trim('0') -and $turnSpan.Trim('0')) { $traceId = $turnTrace; $parentId = $turnSpan }
+            }
         }
-        return (Split-Path -Leaf $Root)
-    }
-
-    function Get-RepoBranch([string]$Root) {
-        # symbolic-ref (not rev-parse) so a fresh repo with no commits still
-        # resolves; detached HEAD reports "HEAD".
-        $b = Invoke-GitBounded $Root @('symbolic-ref', '--short', '-q', 'HEAD')
-        if ($b) { return ([string]$b).Trim() }
-        return 'HEAD'
-    }
-
-    $nowNs = ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() * 1000000000).ToString()
-
-    function New-DataPoint([string]$name, [string]$branch) {
-        '{"attributes":[' +
-          '{"key":"session_id","value":{"stringValue":' + (ConvertTo-JsonString $sid) + '}},' +
-          '{"key":"repository_name","value":{"stringValue":' + (ConvertTo-JsonString $name) + '}},' +
-          '{"key":"branch_name","value":{"stringValue":' + (ConvertTo-JsonString $branch) + '}},' +
-          '{"key":"user_email","value":{"stringValue":' + (ConvertTo-JsonString $email) + '}}' +
-          '],"timeUnixNano":"' + $nowNs + '","asInt":"1"}'
-    }
-
-    # Dedupe by repo root AND by resolved name+branch (a linked worktree resolves
-    # to a different root but the same owner/repo; emit one data point per
-    # name+branch, so worktrees on different branches each report).
-    $dps = @()
-    $seenRoots = @(); $seenKeys = @()
-    foreach ($p in @($cwd, $fp)) {
-        if (-not $p) { continue }
-        $d = $p
-        if (-not (Test-Path -LiteralPath $d -PathType Container)) {
-            $d = Split-Path -Parent $p
+        if (-not $traceId) {
+            # First 32 hex chars of SHA-256(session_id).
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            $traceId = (($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($sid)) | ForEach-Object { $_.ToString('x2') }) -join '').Substring(0, 32)
         }
-        if (-not $d -or -not (Test-Path -LiteralPath $d -PathType Container)) { continue }
-        $root = Get-RepoRoot $d
-        if (-not $root -or $seenRoots -contains $root) { continue }
-        $seenRoots += $root
-        $name = Get-RepoName $root
-        if (-not $name) { continue }
-        $branch = Get-RepoBranch $root
-        if ($seenKeys -contains "$name $branch") { continue }
-        $seenKeys += "$name $branch"
-        $dps += (New-DataPoint $name $branch)
+
+        $fields = '{"session_id":' + (ConvertTo-JsonString $sid) +
+            ',"hook_event":' + (ConvertTo-JsonString $evName) +
+            ',"tool_name":' + (ConvertTo-JsonString $tool) +
+            ',"directory":' + (ConvertTo-JsonString $dir) +
+            ',"time_unix_nano":"' + $timeNs + '"' +
+            ',"trace_id":"' + $traceId + '"' +
+            ',"parent_span_id":"' + $parentId + '"}'
+
+        # Git and the send run in a detached, hidden child, so the session never
+        # waits for them, and they outlive the 1.5 s SessionEnd budget and the
+        # end of a `claude -p` run. The child inherits the fields through this
+        # process's environment, not through stdin or its command line.
+        [Environment]::SetEnvironmentVariable($FieldsVariable, $fields)
+        $childArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File ' +
+            (ConvertTo-ProcessArgument $PSCommandPath) + ' -Send'
+        if ($SettingsFile) { $childArgs += ' -SettingsFile ' + (ConvertTo-ProcessArgument $SettingsFile) }
+        if ($OtlpEndpoint) { $childArgs += ' -OtlpEndpoint ' + (ConvertTo-ProcessArgument $OtlpEndpoint) }
+        if ($OtlpHeaders) { $childArgs += ' -OtlpHeaders ' + (ConvertTo-ProcessArgument $OtlpHeaders) }
+        if ($ResourceAttributes) { $childArgs += ' -ResourceAttributes ' + (ConvertTo-ProcessArgument $ResourceAttributes) }
+        $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        Start-Process -FilePath $powershell -ArgumentList $childArgs -WindowStyle Hidden
+        exit 0
     }
-    if ($dps.Count -eq 0) { $dps += (New-DataPoint 'unknown' 'unknown') }
 
-    # --- Build OTLP/JSON payload (hand-built string; guaranteed array shape) ---
-    $rattrs = '{"key":"service.name","value":{"stringValue":"claude-code-hook"}}'
-    if ($app) { $rattrs += ',{"key":"cx.application.name","value":{"stringValue":' + (ConvertTo-JsonString $app) + '}}' }
-    if ($sub) { $rattrs += ',{"key":"cx.subsystem.name","value":{"stringValue":' + (ConvertTo-JsonString $sub) + '}}' }
+    # --- Sender (-Send): git, payload, POST ----------------------------------
+    $fieldsJson = [Environment]::GetEnvironmentVariable($FieldsVariable)
+    [Environment]::SetEnvironmentVariable($FieldsVariable, $null)
+    if (-not $fieldsJson) { exit 0 }
+    $f = $fieldsJson | ConvertFrom-Json
+    if (-not $f -or -not $f.session_id -or -not $f.hook_event -or -not $f.trace_id) { exit 0 }
 
-    $payload = '{"resourceMetrics":[{"resource":{"attributes":[' + $rattrs + ']},' +
-        '"scopeMetrics":[{"scope":{"name":"repo-tracker","version":"1.0.0"},' +
-        '"metrics":[{"name":"claude_code_session_repo_info","gauge":{"dataPoints":[' +
-        ($dps -join ',') + ']}}]}]}]}'
+    try {
+        $spanAttrs = New-Object System.Collections.ArrayList
+        function Add-SpanAttr([string]$Key, [string]$Value) {
+            if (-not $Value) { return }
+            [void]$spanAttrs.Add('{"key":"' + $Key + '","value":{"stringValue":' + (ConvertTo-JsonString $Value) + '}}')
+        }
 
-    # --- Emit (errors swallowed; the hook must never disturb the session) ------
-    $ep = $endpoint.TrimEnd('/')
-    if ($ep -notmatch '^https?://') { $ep = "https://$ep" }
+        Add-SpanAttr 'agent_name' 'claude-code'
+        Add-SpanAttr 'hook_event' ([string]$f.hook_event)
+        Add-SpanAttr 'session_id' ([string]$f.session_id)
+        # The claude.ai login cached in ~/.claude.json, when present. It can outlive a switch to an API key.
+        try {
+            $configDir = if ($env:CLAUDE_CONFIG_DIR) { $env:CLAUDE_CONFIG_DIR } else { $env:USERPROFILE }
+            $claudeJson = [IO.File]::ReadAllText((Join-Path $configDir '.claude.json')) | ConvertFrom-Json
+            Add-SpanAttr 'user_email' ([string]$claudeJson.oauthAccount.emailAddress)
+        } catch {}
+        Add-SpanAttr 'tool_name' ([string]$f.tool_name)
+        $dir = [string]$f.directory
+        if ($dir) {
+            $origin = Get-Remote (Invoke-GitBounded $dir @('remote', 'get-url', 'origin'))
+            if ($origin) {
+                Add-SpanAttr 'vcs_repository_url_full' $origin[0]
+                Add-SpanAttr 'vcs_repository_name' $origin[1]
+                # Not --short: it prints heads/<name> when a tag has the same name. Fails on a detached HEAD.
+                $ref = Invoke-GitBounded $dir @('symbolic-ref', '--quiet', 'HEAD')
+                if ($ref.StartsWith('refs/heads/', [StringComparison]::Ordinal)) {
+                    Add-SpanAttr 'vcs_ref_head_name' $ref.Substring('refs/heads/'.Length)
+                }
+            }
+        }
 
-    Invoke-WebRequest -Uri "$ep/v1/metrics" -Method Post `
-        -Body ([Text.Encoding]::UTF8.GetBytes($payload)) `
-        -ContentType 'application/json' `
-        -Headers @{ Authorization = $auth } `
-        -TimeoutSec 5 -UseBasicParsing | Out-Null
+        $rattrs = '{"key":"service.name","value":{"stringValue":"claude-code-hook"}}' +
+            ',{"key":"cx.source.integration.type","value":{"stringValue":"claude_code_agent"}}'
+        if ($app) { $rattrs += ',{"key":"cx.application.name","value":{"stringValue":' + (ConvertTo-JsonString $app) + '}}' }
+        if ($sub) { $rattrs += ',{"key":"cx.subsystem.name","value":{"stringValue":' + (ConvertTo-JsonString $sub) + '}}' }
+
+        $spanBytes = New-Object byte[] 8
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($spanBytes)
+        $spanId = ($spanBytes | ForEach-Object { $_.ToString('x2') }) -join ''
+
+        $parent = ''
+        if ($f.parent_span_id) { $parent = ',"parentSpanId":"' + [string]$f.parent_span_id + '"' }
+        $timeNs = [string]$f.time_unix_nano
+
+        $payload = '{"resourceSpans":[{"resource":{"attributes":[' + $rattrs + ']},' +
+            '"scopeSpans":[{"scope":{"name":"claude-code-hook"},' +
+            '"spans":[{"traceId":"' + [string]$f.trace_id + '","spanId":"' + $spanId + '"' + $parent + ',' +
+            '"name":' + (ConvertTo-JsonString ('agent_hook.' + [string]$f.hook_event)) + ',"kind":1,' +
+            '"startTimeUnixNano":"' + $timeNs + '","endTimeUnixNano":"' + $timeNs + '",' +
+            '"attributes":[' + ($spanAttrs -join ',') + ']}]}]}]}'
+
+        $ep = $endpoint.TrimEnd('/')
+        if ($ep -notmatch '^https?://') { $ep = "https://$ep" }
+
+        # No redirect is followed: it would carry the key to another URL. PS 5.1
+        # returns a 3xx as the response or reports it as an error: either way it
+        # is recorded as a failure.
+        $sendErrors = $null
+        $resp = Invoke-WebRequest -Uri "$ep/v1/traces" -Method Post `
+            -Body ([Text.Encoding]::UTF8.GetBytes($payload)) `
+            -ContentType 'application/json' `
+            -Headers @{ Authorization = $auth } `
+            -MaximumRedirection 0 -TimeoutSec 5 -UseBasicParsing `
+            -ErrorAction SilentlyContinue -ErrorVariable sendErrors
+        if ($resp) {
+            $code = [int]$resp.StatusCode
+            if ($code -ge 300) { Write-LastError "HTTP $code" }
+        } elseif ($sendErrors) {
+            throw $sendErrors[0].Exception
+        }
+    } catch {
+        # The sender runs detached, so this file is the only trace of a failure.
+        # Only the status or the exception type: a message could echo the key.
+        $ex = $_.Exception
+        while ($ex -is [System.Management.Automation.MethodInvocationException] -and $ex.InnerException) { $ex = $ex.InnerException }
+        if ($ex -is [System.Net.WebException] -and $ex.Response) {
+            Write-LastError ('HTTP ' + [int]$ex.Response.StatusCode)
+        } else {
+            Write-LastError $ex.GetType().Name
+        }
+    }
 } catch {}
 
 exit 0
@@ -288,5 +460,5 @@ exit 0
 #    PowerShell 5.1 would prepend a BOM).
 [System.IO.File]::WriteAllText($TargetFile, $Content, (New-Object System.Text.UTF8Encoding $false))
 
-Write-Host "Deployed Claude Code repo-tracker hook to $TargetFile"
+Write-Host "Deployed Claude Code session-spans hook to $TargetFile"
 exit 0
