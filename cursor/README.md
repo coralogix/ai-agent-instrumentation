@@ -193,7 +193,7 @@ The hook installs into the **signed-in user's profile** (`~/.cursor` on macOS/Li
 
 ## Option 2 — VS Code / Cursor Extension
 
-Install `cursor-coralogix-1.0.0.vsix` from the `extension/` folder via `Cmd+Shift+P → Extensions: Install from VSIX`.
+Install `cursor-coralogix-1.1.0.vsix` from the `extension/` folder via `Cmd+Shift+P → Extensions: Install from VSIX`.
 
 Then:
 1. Open Settings and search for `cursorCoralogix`, fill in your API key and select your region endpoint
@@ -237,7 +237,9 @@ Each Cursor hook event becomes one OTLP trace span, named `cursor.<event>` (for 
 | `afterAgentResponse` | `cursor.afterAgentResponse` | `cursor.text` (masked by default), `cursor.duration_ms` |
 | `afterAgentThought` | `cursor.afterAgentThought` | `cursor.text` (masked by default) |
 
-All spans carry `cx.integration.source.type` (`cursor_agent`) and `cx.integration.source.version`, plus, when available: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `cursor.user_email`. Every export also carries the `CX-Application-Name` and `CX-Subsystem-Name` values as request headers, which Coralogix uses to tag the ingested data with your application and subsystem names.
+The OTLP resource carries `cx.source.integration.type` (`anysphere-cursor`) and `cx.integration.source.version`, the same way the Claude Code integration marks its telemetry; Coralogix uses them to route the spans to the Cursor dataset. Hooks older than 1.1.0 instead sent `cx.integration.source.type` (`cursor_agent`) on each span.
+
+All spans carry, when available: `cursor.conversation_id`, `cursor.generation_id`, `gen_ai.request.model`, `gen_ai.system`, `cursor.user_email`. Every export also carries the `CX-Application-Name` and `CX-Subsystem-Name` values as request headers, which Coralogix uses to tag the ingested data with your application and subsystem names.
 
 ---
 
